@@ -1061,7 +1061,7 @@ export const en: Messages = {
     },
     backup: {
       intro:
-        'All data on this device (people, calendars, local events, timetables, settings, to-dos, shopping list, weather places, overview, photo frame settings, games & records, and module order) is stored locally. Export and import let you back it up or move it to another device. Local photos and the Gemini API key stay on this device.',
+        'All data on this device (people, calendars, local events, birthdays, timetables, settings, sounds & reminders, to-dos, shopping list, weather places, overview, photo frame settings, games & records, and module order) is stored locally. Export and import let you back it up or move it to another device. Local photos and the Gemini API key stay on this device.',
       warn: 'The file contains the secret subscription links of your calendars. Anyone who has it can read the events – please don’t share it.',
       export: 'Export (.json)',
       import: 'Import …',

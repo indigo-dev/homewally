@@ -1064,7 +1064,7 @@ export const de = {
     },
     backup: {
       intro:
-        'Alle Daten dieses Geräts (Personen, Kalender, lokale Termine, Stundenpläne, Einstellungen, To-dos, Einkaufsliste, Wetter-Orte, Übersicht, Fotorahmen-Einstellungen, Spielecke & Rekorde sowie Modul-Reihenfolge) werden nur lokal gespeichert. Mit Export/Import kannst du sie sichern oder auf ein anderes Gerät übertragen. Lokale Fotos und der Gemini-API-Key bleiben auf diesem Gerät.',
+        'Alle Daten dieses Geräts (Personen, Kalender, lokale Termine, Geburtstage, Stundenpläne, Einstellungen, Töne & Erinnerungen, To-dos, Einkaufsliste, Wetter-Orte, Übersicht, Fotorahmen-Einstellungen, Spielecke & Rekorde sowie Modul-Reihenfolge) werden nur lokal gespeichert. Mit Export/Import kannst du sie sichern oder auf ein anderes Gerät übertragen. Lokale Fotos und der Gemini-API-Key bleiben auf diesem Gerät.',
       warn: 'Die Datei enthält die geheimen Abo-Links deiner Kalender. Wer sie hat, kann die Termine lesen – bitte nicht weitergeben.',
       export: 'Exportieren (.json)',
       import: 'Importieren …',
