@@ -15,7 +15,7 @@ HomeWally unterstützt **7 Stile** (`<html data-style="...">`: `wally`, `classic
 - **CSS-Kaskadenschichten (`@layer`) einhalten:** Die Reihenfolge `app`, `modules`, `themes` (in `index.html` definiert) respektieren. Modul-CSS gehört in `@layer modules`, Theme-Overrides in `src/themes.css` bzw. `src/wally.css` (`@layer themes`), damit Stile nicht durch ungeschichtete Regeln überschrieben werden.
 - **Icons & Glyphen:** In Nicht-`classic`-Stilen werden `.ui-glyph` ausgeblendet und `.ui-icon` (SVG mit `stroke: currentColor`) eingeblendet. Neue Icons über `src/components/Icon.tsx` bereitstellen, damit sie sich automatisch an Stil und Modus anpassen.
 - **Systemleisten & Vollbild:** Bei Änderungen an Vollbild-Overlays, Hintergründen oder Theme-Wechseln sicherstellen, dass `meta[name="theme-color"]` (PWA) und `setSystemBars` (Android in `src/App.tsx` / `AppLauncherPlugin.java`) farblich und beim Icon-Kontrast konsistent bleiben.
-- **Wand-Tablet-Ergonomie (Landscape & Touch):** Keine abgeschnittenen Badges/Tooltips in scrollbaren Leisten (`overflow`), keine überlappenden Fußzeilen im Querformat, großzügige Touch-Ziele und sauberes Verhalten bei wenigen wie auch vielen Einträgen.
+- **Wand-Tablet-Ergonomie (Landscape & Touch):** Großzügige Touch-Ziele, gute Lesbarkeit aus Armeslänge und konsistente Abstände (siehe auch Abschnitt 7 zu modulübergreifenden Layout-Richtlinien).
 
 ---
 
@@ -76,9 +76,44 @@ HomeWally läuft sowohl als **Web-App / installierte PWA** im Browser als auch a
 
 ---
 
-## 5. Allgemeine Projekt-Standards
+## 5. Mehrsprachigkeit (alle vorhandenen Sprachen)
 
-- **i18n-Parität:** Jeder sichtbare oder gesprochene Text muss in **beiden** Sprachdateien (`src/i18n/de.ts` und `src/i18n/en.ts`) mit identischer Schlüsselstruktur gepflegt werden (`src/i18n/i18n.test.ts` prüft dies).
+Jedes Feature muss in **allen** in `src/i18n/index.ts` registrierten Sprachen (aktuell `de` und `en` sowie jede künftig ergänzte Sprache in `LANGUAGES` / `MESSAGES`) vollständig und natürlich funktionieren.
+
+- **Keine hartcodierten Texte:** Alle sichtbaren und gesprochenen Strings (Labels, Buttons, Tooltips, Fehlermeldungen, Bestätigungsdialoge, Sprachbefehls-Antworten, Katalog-Einträge wie Lebensmittel/Fächer, Widget-Titel/-Beschreibungen) ausschließlich über `t(...)` aus `src/i18n/` beziehen.
+- **Vollständige Sprach-Parität:** Jeden neuen Schlüssel in allen Sprachdateien (`src/i18n/de.ts`, `src/i18n/en.ts`, …) zeitgleich mit identischer Struktur pflegen (`src/i18n/i18n.test.ts` prüft dies).
+- **Locale-bewusste Formatierung:** Daten, Uhrzeiten, Wochentage, Zahlen, Sortierungen und Pluralformen (`Plural` / `Intl.PluralRules`) immer über `locale()` / `t(..., { n })` statt fester deutscher oder englischer Formate darstellen.
+- **Sprachsteuerung & Demo-Daten:** Auch Voice-Prompts/Beispiele, TTS-Ansagen (`src/native/speech.ts`) und Demo-Daten (`src/lib/demoData.ts`) müssen die aktive App-Sprache sauber unterstützen.
+
+---
+
+## 6. Widgets & Größenstufen (Dashboard)
+
+Bei jedem neuen Dashboard-Widget – sowie bei funktionalen Erweiterungen bestehender Widgets – muss von Anfang an geprüft werden, in welchen Größenstufen es sinnvoll vorliegen soll (`SIZES` in `src/lib/dashboard.ts`: `s` 1×1, `m` 2×1, `t` 1×2, `l` 2×2, `xl` 3×2).
+
+- **Sinnvolle Größenvarianten anbieten:** Prüfen, ob neben einer kompakten Kachel (`s` 1×1) weitere Größen mit echtem Mehrwert sinnvoll sind (z. B. zusätzliche Details in `m` 2×1, Liste/Verlauf/Graph in `t` 1×2 oder `l` 2×2, Übersicht in `xl` 3×2).
+- **Inhalt & Layout pro Größe anpassen:** Jede freigegebene Größe muss den verfügbaren Platz sinnvoll nutzen – kompakt ohne Überladung bei kleinen Größen, mehr Information/Visualisierung bei großen Größen, niemals einfach leer gestreckt oder abgeschnitten.
+- **Normal- & Bearbeitungsmodus prüfen:** Jede Größenvariante muss sowohl im regulären Betrieb als auch im Dashboard-Bearbeitungsmodus (inkl. Größenmenü, Verschieben und Raster-Packen) stabil bleiben.
+- **Vollständige Registrierung:** Bei neuen Widgets `WidgetType` & `DEFS` in `src/lib/dashboard.ts`, Renderer in `src/dashboard/widgets/index.tsx`, i18n-Einträge (`dashboard.widgets.<type>`) sowie `src/lib/demoData.test.ts` aktualisieren.
+
+---
+
+## 7. Modulübergreifende Layout-, Höhen- & Überlauf-Richtlinien
+
+Die strengen Layout-Regeln des Dashboards (Höhe/Länge, Raster-Stabilität, saubere Grenzen) gelten **überall** in der gesamten App – also genauso im Wetter-Modul, Kalender, Einkaufsliste, To-dos, Stundenplan, Fotorahmen, Spielecke, Apps, Einstellungen und in jedem neuen Modul.
+
+- **Höhen- & Längenkontrolle (kein Überlappen, kein Quetschen):**
+  - Kopfzeilen, Filterleisten und Fußzeilen/Credits (z. B. `.wx-credit`) dürfen niemals von Kacheln, Listen oder Karten überlagert oder aus dem sichtbaren Bereich gedrückt werden.
+  - Scrollbare Bereiche mit klaren Flex-/Grid-Grenzen (`min-height: 0`, `min-width: 0`, bei wachsendem Inhalt `flex: 1 0 auto` + Scroll-Container) aufbauen statt Inhalte abzuschneiden.
+- **Stabile Abmessungen in allen Zuständen:** Umschalten in Bearbeitungsmodi, Einblenden von Toolbars/Bannern oder Hinzufügen von Einträgen darf keine Zeilenhöhen verzerren oder das Gesamtlayout springen lassen.
+- **Sauberes Verhalten bei wenig & viel Inhalt:** Jede Ansicht muss mit 0 Einträgen, wenigen Einträgen und vielen Einträgen (durch kontrolliertes Scrollen, sinnvolle Skalierung/Kompaktstufen, Umbruch oder Ellipsis) gut aussehen.
+- **Kein ungewolltes Abschneiden (Overflow):** Badges, Warnpunkte, Tooltips, Popover und Menüs dürfen nicht durch `overflow: hidden` an Eltern-Containern abgeschnitten werden; bei horizontal scrollbaren Leisten (z. B. Personen-Filter) klare Übergänge (Edge-Fade) verwenden.
+- **Quer- und Hochformat:** Alle Module auf Wand-Tablets im Querformat (typisch 16:10 / 16:9) **und** auf schmaleren bzw. hochformatigen Viewports sauber nutzbar halten – ohne ungewollte horizontale Scrollbalken.
+
+---
+
+## 8. Allgemeine Projekt-Standards
+
 - **Audio-Feedback:** Bei passenden Nutzeraktionen (z. B. Abhaken, Anlegen, Löschen) konsistent `src/lib/sounds.ts` anbinden (respektiert Stummschaltung und Ruhezeit).
 - **Mitglieder-Löschung & Datenintegrität:** Wenn neue Daten auf Familienmitglieder referenzieren, beim Entfernen eines Mitglieds (`src/store.tsx`) verwaiste Referenzen sauber bereinigen.
 - **Verifikation vor Abschluss:** Vor jeder Fertigmeldung / jedem Commit muss `npm run check` (`typecheck`, `lint`, `format:check`, `test`) sowie `npm run build` fehlerfrei durchlaufen (in Windows PowerShell via `npm.cmd`).
