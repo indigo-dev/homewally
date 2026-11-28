@@ -33,7 +33,8 @@ export function parseGamesSettings(raw: unknown): GamesSettings {
   };
 }
 
-const settingsStore = persisted<GamesSettings>('fc.games', parseGamesSettings, { syncTabs: false });
+export const gamesSettingsStore = persisted<GamesSettings>('fc.games', parseGamesSettings, { syncTabs: false });
+const settingsStore = gamesSettingsStore;
 export const useGamesSettings = () => usePersisted(settingsStore);
 export const updateGamesSettings = (patch: Partial<GamesSettings>) => settingsStore.set((s) => ({ ...s, ...patch }));
 
@@ -84,7 +85,7 @@ export const setPlayer = (id: string) => playerStore.set(id);
 
 /** best value per record key ('mines:easy', 'gems', …) and player */
 type Records = Record<string, Record<string, number>>;
-const recordsStore = persisted<Records>(
+export const gamesRecordsStore = persisted<Records>(
   'fc.games.records',
   (raw) => {
     const out: Records = {};
@@ -98,6 +99,7 @@ const recordsStore = persisted<Records>(
   },
   { syncTabs: false },
 );
+const recordsStore = gamesRecordsStore;
 export const useRecords = () => usePersisted(recordsStore);
 
 /**

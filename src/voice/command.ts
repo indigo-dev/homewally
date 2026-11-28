@@ -1,4 +1,5 @@
 import { CATEGORIES, type CategoryId } from '../lib/shopping';
+import { RECURRENCES, type Recurrence } from '../lib/localEvents';
 import { MODULES, type ModuleId } from '../components/ModuleNav';
 import { isRecord } from '../lib/persisted';
 import { getLanguage, type Language } from '../i18n';
@@ -35,6 +36,32 @@ export interface TodoRequest {
 /** "Müll rausbringen ist erledigt" */
 export interface CheckTodoRequest {
   text: string;
+  members: string[];
+}
+
+/** "Trag Dienstag um 15 Uhr Fußball für Jan ein" */
+export interface AddEventRequest {
+  title: string;
+  /** YYYY-MM-DD */
+  date: string;
+  /** inclusive YYYY-MM-DD for multi-day all-day events */
+  endDate?: string;
+  allDay: boolean;
+  /** HH:MM when allDay is false */
+  startTime?: string;
+  /** HH:MM when allDay is false */
+  endTime?: string;
+  repeat: Recurrence;
+  /** names as spoken, or EVERYONE; empty = nobody named → the app asks "für wen?" */
+  members: string[];
+  location?: string;
+}
+
+/** "Lösch den Termin Fußball am Dienstag" */
+export interface DeleteEventRequest {
+  title: string;
+  /** optional YYYY-MM-DD */
+  date?: string;
   members: string[];
 }
 
@@ -85,6 +112,8 @@ export interface Command {
   checkShopping: string[];
   addTodos: TodoRequest[];
   checkTodos: CheckTodoRequest[];
+  addEvents: AddEventRequest[];
+  deleteEvents: DeleteEventRequest[];
   askWeather: WeatherRequest[];
   askEvents: EventsRequest[];
   askShopping: boolean;
@@ -103,6 +132,10 @@ export interface VoiceContext {
   pantry: string[];
   /** texts of the open to-dos (to check one off by name) */
   todos?: string[];
+  /** titles/dates of local family calendar events (to delete one by name) */
+  localEvents?: string[];
+  /** whether the local family calendar is enabled */
+  localCalendarEnabled?: boolean;
 }
 
 const CAT_IDS = CATEGORIES.map((c) => c.id);
@@ -111,6 +144,7 @@ export const VIEW_IDS: ViewMode[] = ['day', 'days', 'week', 'month', 'year', 'ag
 
 const NAMES = { type: 'ARRAY', items: { type: 'STRING' } } as const;
 const DATE = { type: 'STRING', description: 'YYYY-MM-DD' } as const;
+const TIME = { type: 'STRING', description: 'HH:MM' } as const;
 
 /** Response schema in the OpenAPI subset Gemini understands. */
 export const COMMAND_SCHEMA = {
@@ -137,6 +171,32 @@ export const COMMAND_SCHEMA = {
     checkTodos: {
       type: 'ARRAY',
       items: { type: 'OBJECT', properties: { text: { type: 'STRING' }, members: NAMES }, required: ['text'] },
+    },
+    addEvents: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          title: { type: 'STRING' },
+          date: DATE,
+          endDate: DATE,
+          allDay: { type: 'BOOLEAN' },
+          startTime: TIME,
+          endTime: TIME,
+          repeat: { type: 'STRING', enum: [...RECURRENCES] },
+          members: NAMES,
+          location: { type: 'STRING' },
+        },
+        required: ['title', 'date'],
+      },
+    },
+    deleteEvents: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { title: { type: 'STRING' }, date: DATE, members: NAMES },
+        required: ['title'],
+      },
     },
     askWeather: {
       type: 'ARRAY',
@@ -191,16 +251,17 @@ function germanPrompt(ctx: VoiceContext): string {
     `Wetter-Orte (der erste ist Zuhause): ${list(ctx.places, 'keine')}.`,
     `Artikel im Vorrat der Einkaufsliste: ${list(ctx.pantry, 'keine')}.`,
     `Offene To-dos: ${quoted(ctx.todos ?? [], 'keine')}.`,
+    `Lokale Termine: ${quoted(ctx.localEvents ?? [], 'keine')}.`,
     '',
     'Es gibt drei Arten von Bitten – halte sie streng auseinander:',
-    '1. ÄNDERN (Einkaufsliste, To-dos)',
+    '1. ÄNDERN (Einkaufsliste, To-dos, lokaler Familienkalender)',
     '2. FRAGEN ("was steht …", "welche …", "wie wird …", "lies … vor", "was hat …"): Antwort wird vorgelesen, nichts geöffnet.',
     '3. ZEIGEN ("zeig …", "öffne …", "geh in …", "wechsle zu …"): nur die Anzeige wechseln, nichts vorlesen.',
     'Nur wenn ausdrücklich beides verlangt wird ("zeig mir die Einkaufsliste und lies sie vor"), FRAGEN und ZEIGEN füllen.',
     '',
     'Namen (members): nur Namen aus der Familie, so wie sie oben stehen.',
     `"alle", "wir", "uns", "die ganze Familie" → ["${EVERYONE}"]. "ich", "mich", "mir", "mein" sind KEINE Namen.`,
-    'Wurde bei addTodos, askTodos oder askTimetable niemand genannt, members leer lassen – die App fragt dann nach.',
+    'Wurde bei addTodos, addEvents, askTodos oder askTimetable niemand genannt, members leer lassen – die App fragt dann nach.',
     '',
     'Regeln:',
     '- transcript: wörtlich, was gesagt wurde. Bei Stille oder Rauschen leer lassen und sonst nichts füllen.',
@@ -211,6 +272,10 @@ function germanPrompt(ctx: VoiceContext): string {
     '- addTodos: neue Aufgaben und Erinnerungen ("erinnere Jan …", "auf die To-do-Liste"). text kurz und als Aufgabe formuliert.',
     '  due nur bei genanntem Tag.',
     '- checkTodos: erledigte Aufgaben ("Müll rausbringen ist erledigt") – text möglichst genau wie bei den offenen To-dos.',
+    '- addEvents: neue Termine im lokalen Familienkalender ("trag Dienstag 15 Uhr Fußball für Jan ein", "jeden Montag Schwimmen").',
+    '  allDay true ohne Uhrzeit (endDate bei mehrtägigen Terminen); mit Uhrzeit allDay false, startTime/endTime als HH:MM.',
+    '  repeat: none (Standard), weekly, monthly oder yearly.',
+    '- deleteEvents: lokale Termine löschen ("lösch den Termin Fußball", "sag Zahnarzt am Freitag ab") – title wie bei den lokalen Terminen.',
     '- askWeather: Fragen zum Wetter, ein Eintrag pro Tag. place nur, wenn ein Ort genannt wird.',
     '- askEvents: Fragen zu Terminen ("was steht morgen an?"). Zeiträume als from/to, z. B. "diese Woche" = heute bis Sonntag.',
     '  members nur, wenn nach bestimmten Personen gefragt wird, sonst leer (= ganze Familie).',
@@ -224,7 +289,7 @@ function germanPrompt(ctx: VoiceContext): string {
     '  Ohne genannte Ansicht oder Datum view/date weglassen.',
     '- Relative Angaben wie "morgen", "übermorgen", "nächsten Dienstag" in Daten (YYYY-MM-DD) umrechnen.',
     '- reply: nur wenn die Bitte nicht zu den Bereichen passt oder unklar ist – ein kurzer, freundlicher Satz.',
-    '- Termine anlegen und Dinge löschen geht nicht: dann reply mit einem Hinweis.',
+    '- Abonnierte externe Kalender können nicht geändert oder gelöscht werden; lokale Termine schon.',
   ].join('\n');
 }
 
@@ -240,16 +305,17 @@ function englishPrompt(ctx: VoiceContext): string {
     `Weather places (the first one is home): ${list(ctx.places, 'none')}.`,
     `Items in the shopping list pantry: ${list(ctx.pantry, 'none')}.`,
     `Open to-dos: ${quoted(ctx.todos ?? [], 'none')}.`,
+    `Local events: ${quoted(ctx.localEvents ?? [], 'none')}.`,
     '',
     'There are three kinds of request – keep them strictly apart:',
-    '1. CHANGE (shopping list, to-dos)',
+    '1. CHANGE (shopping list, to-dos, local family calendar)',
     '2. ASK ("what\'s on …", "which …", "how will …", "read … out", "what does … have"): the answer is read aloud, nothing is opened.',
     '3. SHOW ("show …", "open …", "go to …", "switch to …"): only change the screen, read nothing aloud.',
     'Fill both ASK and SHOW only if both are asked for explicitly ("show me the shopping list and read it out").',
     '',
     'Names (members): only names from the family, spelled as above.',
     `"everyone", "all of us", "we", "us", "the whole family" → ["${EVERYONE}"]. "I", "me", "my" are NOT names.`,
-    'If nobody is named for addTodos, askTodos or askTimetable, leave members empty – the app will ask.',
+    'If nobody is named for addTodos, addEvents, askTodos or askTimetable, leave members empty – the app will ask.',
     '',
     'Rules:',
     '- transcript: verbatim what was said. On silence or noise leave it empty and fill in nothing else.',
@@ -260,6 +326,10 @@ function englishPrompt(ctx: VoiceContext): string {
     '- addTodos: new tasks and reminders ("remind Jan …", "put … on the to-do list"). text short and phrased as a task.',
     '  due only if a day is mentioned.',
     '- checkTodos: tasks that are done ("taking out the rubbish is done") – text as close as possible to the open to-dos.',
+    '- addEvents: new events in the local family calendar ("add football for Jan on Tuesday at 3pm", "swimming every Monday").',
+    '  allDay true without a time (endDate for multi-day events); with a time allDay false, startTime/endTime as HH:MM.',
+    '  repeat: none (default), weekly, monthly or yearly.',
+    '- deleteEvents: remove local events ("delete the football event", "cancel dentist on Friday") – title close to the local events.',
     '- askWeather: questions about the weather, one entry per day. place only if a place is mentioned.',
     '- askEvents: questions about events ("what\'s on tomorrow?"). Periods as from/to, e.g. "this week" = today to Sunday.',
     '  members only if the question is about certain people, otherwise empty (= whole family).',
@@ -273,7 +343,7 @@ function englishPrompt(ctx: VoiceContext): string {
     '  Leave out view/date if none is mentioned.',
     '- Convert relative dates like "tomorrow", "the day after tomorrow", "next Tuesday" into dates (YYYY-MM-DD).',
     '- reply: only if the request does not fit the sections or is unclear – one short, friendly sentence.',
-    '- Creating events and deleting things is not possible: then reply with a hint.',
+    '- Subscribed external calendars cannot be edited or deleted; local family events can.',
   ].join('\n');
 }
 
@@ -282,8 +352,14 @@ function englishPrompt(ctx: VoiceContext): string {
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const strs = (v: unknown) => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);
 const isYmd = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(new Date(`${v}T00:00`).getTime());
+const isHm = (v: string) => {
+  if (!/^\d{2}:\d{2}$/.test(v)) return false;
+  const [h, m] = v.split(':').map(Number);
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59;
+};
 const objs = (v: unknown) => (Array.isArray(v) ? v.filter(isRecord) : []);
 const ymdOr = (v: unknown) => (isYmd(str(v)) ? str(v) : undefined);
+const hmOr = (v: unknown) => (isHm(str(v)) ? str(v) : undefined);
 
 function parseShow(raw: unknown): ShowRequest | undefined {
   if (!isRecord(raw)) return undefined;
@@ -315,6 +391,30 @@ export function parseCommand(raw: unknown): Command {
   const checkTodos = objs(r.checkTodos)
     .map((t): CheckTodoRequest => ({ text: str(t.text), members: strs(t.members) }))
     .filter((t) => t.text);
+  const addEvents = objs(r.addEvents)
+    .map((e): AddEventRequest => {
+      const date = str(e.date);
+      const startTime = hmOr(e.startTime);
+      const endTime = hmOr(e.endTime);
+      const allDay = typeof e.allDay === 'boolean' ? e.allDay : !startTime;
+      const endDate = allDay && ymdOr(e.endDate) && str(e.endDate) > date ? str(e.endDate) : undefined;
+      const rep = str(e.repeat) as Recurrence;
+      return {
+        title: str(e.title),
+        date,
+        endDate,
+        allDay,
+        startTime: allDay ? undefined : (startTime ?? '09:00'),
+        endTime: allDay ? undefined : endTime,
+        repeat: RECURRENCES.includes(rep) ? rep : 'none',
+        members: strs(e.members),
+        location: str(e.location) || undefined,
+      };
+    })
+    .filter((e) => e.title && isYmd(e.date));
+  const deleteEvents = objs(r.deleteEvents)
+    .map((e): DeleteEventRequest => ({ title: str(e.title), date: ymdOr(e.date), members: strs(e.members) }))
+    .filter((e) => e.title);
   const askWeather = objs(r.askWeather)
     .map((w): WeatherRequest => ({ date: str(w.date), place: str(w.place) || undefined }))
     .filter((w) => isYmd(w.date));
@@ -334,6 +434,8 @@ export function parseCommand(raw: unknown): Command {
     checkShopping: strs(r.checkShopping),
     addTodos,
     checkTodos,
+    addEvents,
+    deleteEvents,
     askWeather,
     askEvents,
     askShopping: r.askShopping === true,
@@ -350,6 +452,8 @@ export const isEmpty = (c: Command) =>
   !c.checkShopping.length &&
   !c.addTodos.length &&
   !c.checkTodos.length &&
+  !c.addEvents.length &&
+  !c.deleteEvents.length &&
   !c.askWeather.length &&
   !c.askEvents.length &&
   !c.askShopping &&

@@ -3,7 +3,10 @@ import type { CalendarSource } from '../types';
 import { useStore } from '../store';
 import { linkHelp, newCalendar } from '../lib/config';
 import { checkProxy, normalizeIcsUrl, proxyOf, testCalendarLink } from '../lib/events';
+import { useLocalEvents } from '../lib/localEvents';
 import { Avatar } from '../components/Avatar';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Group, Row, Switch } from './controls';
 import { isNative } from '../native/launcher';
 import { t } from '../i18n';
 
@@ -11,9 +14,11 @@ type TestState = { busy: true } | { busy: false; ok: true; text: string } | { bu
 
 export function CalendarsTab() {
   const { calendars, settings, updateSettings } = useStore();
+  const { events: locals, clear: clearLocals } = useLocalEvents();
   const [proxy, setProxy] = useState(settings.proxyUrl);
   const [proxyKey, setProxyKey] = useState(settings.proxyKey);
   const [proxyTest, setProxyTest] = useState<TestState | null>(null);
+  const [askClearLocal, setAskClearLocal] = useState(false);
 
   const saveProxy = async () => {
     const url = proxy.trim().replace(/\/+$/, '');
@@ -28,6 +33,38 @@ export function CalendarsTab() {
 
   return (
     <div className="form">
+      <Group title={t('settings.calendars.localTitle')} note={t('settings.calendars.localNote')}>
+        <Row label={t('settings.calendars.localEnable')} hint={t('settings.calendars.localEnableHint')}>
+          <Switch
+            checked={settings.localCalendarEnabled}
+            onChange={(v) => updateSettings({ localCalendarEnabled: v })}
+            label={t('settings.calendars.localEnable')}
+          />
+        </Row>
+        <Row
+          label={t('settings.calendars.localStored')}
+          hint={locals.length > 0 ? t('settings.calendars.localCount', { n: locals.length }) : t('settings.calendars.localEmpty')}
+        >
+          <button className="btn danger" disabled={locals.length === 0} onClick={() => setAskClearLocal(true)}>
+            {t('settings.calendars.localClear')}
+          </button>
+        </Row>
+      </Group>
+
+      {askClearLocal && (
+        <ConfirmDialog
+          title={t('settings.calendars.localClearTitle')}
+          confirmLabel={t('settings.calendars.localClearConfirm')}
+          onConfirm={() => {
+            clearLocals();
+            setAskClearLocal(false);
+          }}
+          onClose={() => setAskClearLocal(false)}
+        >
+          <p>{t('settings.calendars.localClearBody', { n: locals.length })}</p>
+        </ConfirmDialog>
+      )}
+
       {isNative ? (
         <p className="help">{t('settings.calendars.nativeNote')}</p>
       ) : (

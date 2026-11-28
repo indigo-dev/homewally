@@ -18,9 +18,12 @@ import android.os.Build;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.DisplayMetrics;
+import android.view.Window;
 import android.view.WindowManager;
 
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -89,6 +92,8 @@ public class AppLauncherPlugin extends Plugin {
             app.put("activity", ri.activityInfo.name);
             CharSequence label = ri.loadLabel(pm);
             app.put("label", label != null ? label.toString() : ri.activityInfo.packageName);
+            boolean isSystem = (ri.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+            app.put("system", isSystem);
             if (withIcons) {
                 try {
                     app.put("icon", toDataUrl(ri.loadIcon(pm)));
@@ -154,6 +159,44 @@ public class AppLauncherPlugin extends Plugin {
         call.resolve();
     }
 
+    /** Opens Android's app info page for a specific package (permissions, storage, force stop, …). */
+    @PluginMethod
+    public void openAppInfo(PluginCall call) {
+        String pkg = call.getString("packageName");
+        if (pkg == null || pkg.isEmpty()) {
+            call.reject("packageName fehlt");
+            return;
+        }
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .setData(android.net.Uri.fromParts("package", pkg, null))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getActivity().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("App-Info lässt sich nicht öffnen", e);
+        }
+    }
+
+    /** Opens Android's uninstall confirmation dialog for a package. */
+    @PluginMethod
+    public void uninstall(PluginCall call) {
+        String pkg = call.getString("packageName");
+        if (pkg == null || pkg.isEmpty()) {
+            call.reject("packageName fehlt");
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_DELETE)
+            .setData(android.net.Uri.fromParts("package", pkg, null))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getActivity().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Deinstallation lässt sich nicht starten", e);
+        }
+    }
+
     /** Is HomeWally the current home app? */
     @PluginMethod
     public void isDefaultLauncher(PluginCall call) {
@@ -172,6 +215,21 @@ public class AppLauncherPlugin extends Plugin {
         getActivity().runOnUiThread(() -> {
             if (enabled) getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             else getActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            call.resolve();
+        });
+    }
+
+    /** Matches Android's status & navigation bar icon contrast to the app's light/dark mode. */
+    @PluginMethod
+    public void setSystemBars(PluginCall call) {
+        boolean dark = call.getBoolean("dark", false);
+        getActivity().runOnUiThread(() -> {
+            Window window = getActivity().getWindow();
+            WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, window.getDecorView());
+            if (controller != null) {
+                controller.setAppearanceLightStatusBars(!dark);
+                controller.setAppearanceLightNavigationBars(!dark);
+            }
             call.resolve();
         });
     }

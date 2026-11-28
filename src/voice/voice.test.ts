@@ -299,6 +299,66 @@ describe('applyCommand', () => {
     expect(res.undo).toBeUndefined();
     expect(res.lines[0].icon).toBe('⚠️');
   });
+
+  it('adds and deletes local family calendar events with undo', () => {
+    const { deps } = fakeDeps();
+    const localState: { id: string; title: string; date: string; memberIds: string[]; repeat: string }[] = [];
+    const localDeps = {
+      ...deps,
+      localCalendarEnabled: true,
+      get localEvents() {
+        return localState as never;
+      },
+      upsertLocalEvent: (ev: { id: string; title: string; date: string; memberIds: string[]; repeat: string }) => {
+        const i = localState.findIndex((x) => x.id === ev.id);
+        if (i >= 0) localState[i] = ev;
+        else localState.push(ev);
+      },
+      removeLocalEvent: (id: string) => {
+        const i = localState.findIndex((x) => x.id === id);
+        if (i >= 0) localState.splice(i, 1);
+      },
+    };
+
+    const parsed = parseCommand({
+      transcript: 'Trag Dienstag 15 Uhr Fußball für Anna ein',
+      addEvents: [{ title: 'Fußball', date: '2026-12-01', allDay: false, startTime: '15:00', repeat: 'weekly', members: ['Anna'] }],
+    });
+    expect(parsed.addEvents).toHaveLength(1);
+    expect(missingWho(parsed, deps.members)).toBe(false);
+
+    const added = applyCommand(parsed, localDeps);
+    expect(localState).toHaveLength(1);
+    expect(localState[0]).toMatchObject({ title: 'Fußball', date: '2026-12-01', memberIds: ['a'], repeat: 'weekly' });
+
+    // delete via voice, then undo
+    const deleted = applyCommand(
+      parseCommand({ transcript: 'Lösch Fußball', deleteEvents: [{ title: 'Fußball', members: [] }] }),
+      localDeps,
+    );
+    expect(localState).toHaveLength(0);
+    deleted.undo!();
+    expect(localState).toHaveLength(1);
+
+    // undo the creation
+    added.undo!();
+    expect(localState).toHaveLength(0);
+  });
+
+  it('asks "für wen?" when addEvents names nobody and warns when local calendar is disabled', () => {
+    const { deps } = fakeDeps();
+    const cmd = parseCommand({
+      transcript: 'Trag morgen Zahnarzt ein',
+      addEvents: [{ title: 'Zahnarzt', date: '2026-12-01', allDay: true, members: [] }],
+    });
+    expect(missingWho(cmd, deps.members)).toBe(true);
+    const filled = fillWho(cmd, deps.members, ['Anna']);
+    expect(missingWho(filled, deps.members)).toBe(false);
+
+    const res = applyCommand(filled, { ...deps, localCalendarEnabled: false });
+    expect(res.lines[0].icon).toBe('⚠️');
+    expect(res.undo).toBeUndefined();
+  });
 });
 
 describe('calendar requests', () => {

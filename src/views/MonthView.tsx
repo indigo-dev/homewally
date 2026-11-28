@@ -4,6 +4,7 @@ import { useSize } from '../lib/hooks';
 import type { CalEvent } from '../types';
 import { markClass, membersOf, type ViewProps } from './common';
 import { AllDayChip } from './AllDayChip';
+import { LocalMark } from '../components/Icon';
 import { t } from '../i18n';
 
 const CHIP_H = 22;
@@ -70,13 +71,14 @@ export function MonthView({ date, now, events, onEvent, onOpen, marks }: ViewPro
                         return e.allDay ? (
                           <AllDayChip key={e.key} e={e} members={ms} onClick={() => onEvent(e)} />
                         ) : (
-                          <button key={e.key} className="chip-event" onClick={() => onEvent(e)}>
+                          <button key={e.key} className={`chip-event ${e.localId ? 'local' : ''}`} onClick={() => onEvent(e)}>
                             <span className="dots">
                               {ms.map((m) => (
                                 <span key={m.id} className="dot" style={{ background: m.color }} />
                               ))}
                             </span>
                             <span className="t">{fmtTime(e.start)}</span>
+                            {e.localId && <LocalMark title={t('calendar.local.badge')} />}
                             <span className="n">{e.title}</span>
                           </button>
                         );

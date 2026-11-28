@@ -2,6 +2,7 @@ import type { CalEvent, Member } from '../../types';
 import { useStore } from '../../store';
 import { addDays, fmt, startOfDay } from '../../lib/dates';
 import { AvatarStack } from '../../components/Avatar';
+import { LocalMark } from '../../components/Icon';
 import { gradient, Head, hhmm, useDash, type WidgetProps } from './shared';
 import { useMinute } from '../../lib/clock';
 import { t } from '../../i18n';
@@ -13,7 +14,10 @@ function EventRow({ e, now, byId }: { e: CalEvent; now: Date; byId: Map<string, 
     <div className={`dw-event ${running ? 'running' : ''}`}>
       <span className="dw-event-bar" style={{ background: gradient(ms) }} />
       <span className="dw-event-time">{e.allDay ? t('common.allDay') : running ? t('dashboard.now') : hhmm(e.start)}</span>
-      <span className="dw-event-title">{e.title}</span>
+      <span className="dw-event-title">
+        {e.localId && <LocalMark title={t('calendar.local.badge')} />}
+        {e.title}
+      </span>
       <AvatarStack members={ms} size={20} />
     </div>
   );

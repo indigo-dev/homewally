@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { AppConfig, CalendarSource, Member, SchoolConfig, Settings } from './types';
 import { configStore } from './lib/config';
+import { pruneLocalEventsMember } from './lib/localEvents';
 import { colorScheme, painter, stylePalette, type Paint } from './lib/colors';
 import { arrayOf, isString, persisted, usePersisted } from './lib/persisted';
 import { resolveLanguage, setLanguage, t } from './i18n';
@@ -40,13 +41,14 @@ const actions = {
   patchMember(id: string, patch: Partial<Member>) {
     update((c) => ({ ...c, members: c.members.map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
   },
-  /** removes the person; calendars stay, only the assignment is dropped */
+  /** removes the person; subscribed calendars drop the assignment, local events prune the member */
   removeMember(id: string) {
     update((c) => ({
       ...c,
       members: c.members.filter((m) => m.id !== id),
       calendars: c.calendars.map((cal) => ({ ...cal, memberIds: cal.memberIds.filter((x) => x !== id) })),
     }));
+    pruneLocalEventsMember(id);
   },
   moveMember(id: string, dir: -1 | 1) {
     update((c) => {

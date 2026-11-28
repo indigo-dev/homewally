@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import type { CalEvent, Member } from '../types';
 import { useStore } from '../store';
 import { addDays, fmt, fmtTime, isSameDay } from '../lib/dates';
+import { useLocalEvents } from '../lib/localEvents';
 import { Avatar } from './Avatar';
 import { Modal } from './Modal';
+import { ConfirmDialog } from './ConfirmDialog';
 import { t } from '../i18n';
 
 export function describeWhen(e: CalEvent): string {
@@ -18,15 +21,31 @@ export function describeWhen(e: CalEvent): string {
   return `${d(e.start)} – ${d(e.end)}`;
 }
 
-export function EventDetail({ event, onClose }: { event: CalEvent; onClose: () => void }) {
+export function EventDetail({
+  event,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  event: CalEvent;
+  onClose: () => void;
+  onEdit?: (localId: string) => void;
+  onDelete?: (localId: string) => void;
+}) {
   const { memberById } = useStore();
+  const { events: locals } = useLocalEvents();
+  const [askDelete, setAskDelete] = useState(false);
   const members = event.memberIds.map((id) => memberById.get(id)).filter((m): m is Member => !!m);
+  const localSource = event.localId ? locals.find((x) => x.id === event.localId) : undefined;
   return (
     <Modal onClose={onClose} label={event.title}>
       <div className="modal event-detail">
         <div className="event-detail-bar" style={{ background: members[0]?.color }} />
         <h2>{event.title}</h2>
-        <p className="muted">{describeWhen(event)}</p>
+        <p className="muted">
+          {describeWhen(event)}
+          {localSource && localSource.repeat !== 'none' ? ` · ${t(`calendar.local.repeat.${localSource.repeat}`)}` : ''}
+        </p>
         {event.location && <p>📍 {event.location}</p>}
         <div className="event-detail-members">
           {members.map((m) => (
@@ -39,11 +58,34 @@ export function EventDetail({ event, onClose }: { event: CalEvent; onClose: () =
         {event.notes && <p className="event-notes">{event.notes}</p>}
         {event.calendarName && <p className="muted small">{t('calendar.calendarOf', { name: event.calendarName })}</p>}
         <div className="modal-actions">
+          {event.localId && onDelete && (
+            <button className="btn danger" onClick={() => setAskDelete(true)}>
+              {t('common.delete')}
+            </button>
+          )}
+          {event.localId && onEdit && (
+            <button className="btn" onClick={() => onEdit(event.localId!)}>
+              {t('common.edit')}
+            </button>
+          )}
           <button className="btn primary" onClick={onClose}>
             {t('common.close')}
           </button>
         </div>
       </div>
+      {askDelete && event.localId && onDelete && (
+        <ConfirmDialog
+          title={t('calendar.local.deleteOneTitle')}
+          confirmLabel={t('common.delete')}
+          onConfirm={() => {
+            setAskDelete(false);
+            onDelete(event.localId!);
+          }}
+          onClose={() => setAskDelete(false)}
+        >
+          <p>{t('calendar.local.deleteOneConfirm', { title: event.title })}</p>
+        </ConfirmDialog>
+      )}
     </Modal>
   );
 }

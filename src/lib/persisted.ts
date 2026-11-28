@@ -44,6 +44,8 @@ export const storage = {
 export interface Persisted<T> {
   get(): T;
   set(next: T | ((current: T) => T)): void;
+  /** validates and replaces the stored value from raw data (e.g. backup import) */
+  restore(raw: unknown): void;
   subscribe(listener: () => void): () => void;
   /** reads the stored value again (another tab changed it) */
   reload(): void;
@@ -98,6 +100,18 @@ export function persisted<T>(key: string, parse: (raw: unknown) => T, { syncTabs
       if (Object.is(v, current)) return;
       value = v;
       storage.write(key, v);
+      emit();
+    },
+    restore(raw) {
+      let next: T;
+      try {
+        next = parse(raw);
+      } catch {
+        next = parse(undefined);
+      }
+      value = next;
+      loaded = true;
+      storage.write(key, next);
       emit();
     },
     subscribe(listener) {

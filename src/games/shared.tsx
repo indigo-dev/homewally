@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { t } from '../i18n';
 import { useStore } from '../store';
+import { playSound } from '../lib/sounds';
 import { Avatar } from '../components/Avatar';
 import { GUEST, setPlayer } from './store';
 
@@ -17,6 +19,10 @@ export function Result({
   record?: boolean;
   onAgain: () => void;
 }) {
+  useEffect(() => {
+    playSound(won ? (record ? 'gameRecord' : 'gameWin') : 'gameLose');
+  }, [won, record]);
+
   return (
     <div className={`game-result ${won ? 'won' : 'lost'}`} role="status">
       <div className="game-result-card">

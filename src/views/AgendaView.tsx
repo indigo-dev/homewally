@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { addDays, AGENDA_DAYS, dayKey, fmt, fmtTime, isSameDay, startOfDay } from '../lib/dates';
 import type { CalEvent } from '../types';
 import { AvatarStack } from '../components/Avatar';
+import { LocalMark } from '../components/Icon';
 import { membersOf, stripe, type ViewProps } from './common';
 import { t, useLanguage } from '../i18n';
 
@@ -68,7 +69,10 @@ export const AgendaView = memo(function AgendaView({ date, now, events, onEvent,
                     </span>
                     <span className="ev-stripe" style={{ background: stripe(ms) }} />
                     <span className="agenda-text">
-                      <span className="ev-title">{e.title}</span>
+                      <span className="ev-title">
+                        {e.localId && <LocalMark title={t('calendar.local.badge')} />}
+                        {e.title}
+                      </span>
                       {e.location && <span className="muted small">📍 {e.location}</span>}
                     </span>
                     <AvatarStack members={ms} size={30} />

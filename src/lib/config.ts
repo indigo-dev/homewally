@@ -106,6 +106,7 @@ export const DEFAULT_SETTINGS: Settings = {
   symbols: DEFAULT_SYMBOL_SET,
   weatherIcons: DEFAULT_WEATHER_ICONS,
   schoolEnabled: true,
+  localCalendarEnabled: true,
 };
 
 const STYLE_IDS: UiStyle[] = ['wally', 'classic', 'clear', 'flow', 'aurora', 'nodes', 'minimal'];

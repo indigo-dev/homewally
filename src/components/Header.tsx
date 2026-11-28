@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { softly } from '../lib/transition';
 import { useTapOrLongPress } from '../lib/hooks';
 import type { Member, ViewMode } from '../types';
@@ -10,7 +10,7 @@ import { GlyphIcon } from './Icon';
 import { WeatherChip } from '../weather/WeatherChip';
 import { t } from '../i18n';
 
-const VIEWS: ViewMode[] = ['day', 'days', 'week', 'month', 'year', 'agenda'];
+const VIEWS: ViewMode[] = ['days', 'week', 'month', 'year', 'agenda'];
 
 interface Props {
   title: string;
@@ -25,7 +25,9 @@ interface Props {
   onRefresh: () => void;
   onSettings: () => void;
   onWeather: () => void;
-  /** person filter – shares the second row with paging and the view switch, so the title gets the first row */
+  /** creates a new event in the local family calendar (omitted when disabled) */
+  onAddEvent?: () => void;
+  /** person filter – shares the second row with the view switch, so the title gets the first row */
   filter?: ReactNode;
   /** today is outside the visible range – then "Heute" is the one action that glows */
   away?: boolean;
@@ -43,16 +45,36 @@ export function Header({
   onRefresh,
   onSettings,
   onWeather,
+  onAddEvent,
   filter,
   away = false,
 }: Props) {
+  const isDaysActive = view === 'day' || view === 'days';
+  const activeDays = view === 'day' ? 1 : multiDays;
+
   return (
     <>
       <header className="topbar cal-topbar">
         <div className="topbar-left">
           <Title text={title} />
+          <div className="nav">
+            <button className="icon-btn" onClick={() => onStep(-1)} aria-label={t('common.back')}>
+              <GlyphIcon glyph="‹" name="back" />
+            </button>
+            <button className={`btn ${away ? 'away' : ''}`} onClick={onToday}>
+              {t('common.today')}
+            </button>
+            <button className="icon-btn" onClick={() => onStep(1)} aria-label={t('common.forward')}>
+              <GlyphIcon glyph="›" name="forward" />
+            </button>
+          </div>
         </div>
         <div className="topbar-right">
+          {onAddEvent && (
+            <button className="btn primary cal-add-btn" onClick={onAddEvent}>
+              {t('calendar.local.addBtn')}
+            </button>
+          )}
           <WeatherChip onClick={onWeather} />
           <Clock />
           <button className={`icon-btn ${loading ? 'spin' : ''}`} onClick={onRefresh} aria-label={t('common.refresh')}>
@@ -65,42 +87,37 @@ export function Header({
       </header>
       <div className="cal-bar">
         {filter}
-        <div className="nav">
-          <button className="icon-btn" onClick={() => onStep(-1)} aria-label={t('common.back')}>
-            <GlyphIcon glyph="‹" name="back" />
-          </button>
-          <button className={`btn ${away ? 'away' : ''}`} onClick={onToday}>
-            {t('common.today')}
-          </button>
-          <button className="icon-btn" onClick={() => onStep(1)} aria-label={t('common.forward')}>
-            <GlyphIcon glyph="›" name="forward" />
-          </button>
-        </div>
         <div className="segmented" role="tablist">
           {VIEWS.map((v) =>
-            v === 'days' && view === 'days' ? (
-              // active N-days tab: − / + change the number of days
+            v === 'days' && isDaysActive ? (
+              // active 1–6 days tab: − / + change the number of days (1 = single day view)
               <span key={v} role="tab" aria-selected className="active seg-days">
                 <button
                   className="seg-step"
-                  onClick={() => onMultiDays(multiDays - 1)}
-                  disabled={multiDays <= 2}
+                  onClick={() => onMultiDays(activeDays - 1)}
+                  disabled={activeDays <= 1}
                   aria-label={t('calendar.fewerDays')}
                 >
                   −
                 </button>
-                <span>{t('calendar.nDays', { n: multiDays })}</span>
+                <span>{t('calendar.nDays', { n: activeDays })}</span>
                 <button
                   className="seg-step"
-                  onClick={() => onMultiDays(multiDays + 1)}
-                  disabled={multiDays >= 6}
+                  onClick={() => onMultiDays(activeDays + 1)}
+                  disabled={activeDays >= 6}
                   aria-label={t('calendar.moreDays')}
                 >
                   +
                 </button>
               </span>
             ) : (
-              <button key={v} role="tab" aria-selected={view === v} className={view === v ? 'active' : ''} onClick={() => onView(v)}>
+              <button
+                key={v}
+                role="tab"
+                aria-selected={v === 'days' ? isDaysActive : view === v}
+                className={view === v ? 'active' : ''}
+                onClick={() => onView(v)}
+              >
                 {v === 'days' ? t('calendar.nDays', { n: multiDays }) : t(`calendar.views.${v}`)}
               </button>
             ),
@@ -203,10 +220,30 @@ export function MemberChip({
 
 export function MemberFilter({ issues, onIssue }: { issues: Record<string, string>; onIssue: (message: string) => void }) {
   const { members, selectedIds, selectOnly, toggleSelected, showAll } = useStore();
+  const ref = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => {
+      const left = el.scrollLeft > 2;
+      const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+      el.dataset.fade = left && right ? 'both' : left ? 'left' : right ? 'right' : 'none';
+    };
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro.disconnect();
+    };
+  }, [members.length]);
+
   if (members.length === 0) return null;
   const all = selectedIds.size === 0;
   return (
-    <nav className="filterbar" aria-label={t('calendar.memberFilter')}>
+    <nav ref={ref} className="filterbar" aria-label={t('calendar.memberFilter')}>
       {' '}
       <button className={`chip all ${all ? 'on' : ''}`} aria-pressed={all} onClick={() => softly(showAll)}>
         {t('common.all')}

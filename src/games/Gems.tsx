@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as R
 import { t } from '../i18n';
 import { SIZE, adjacent, collapse, findMatches, findMove, kindsOf, newBoard, swapped, type Gem } from './logic/gems';
 import { submitResult, useRecords } from './store';
+import { playSound } from '../lib/sounds';
 import { Result } from './shared';
 
 const MOVES = 25;
@@ -73,6 +74,7 @@ export function Gems({ player }: { player: string }) {
       if (!m.size) break;
       setCombo(chain);
       setPopping(m);
+      playSound('gameMatch');
       await sleep(320);
       if (!alive.current) return;
       total += m.size * 10 * chain;

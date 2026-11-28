@@ -1,5 +1,6 @@
 import { uid } from './id';
 import { arrayOf, isRecord, isString, persisted, usePersisted } from './persisted';
+import { playSound } from './sounds';
 import { t, type Messages } from '../i18n';
 
 const KEY = 'fc.shopping';
@@ -299,6 +300,7 @@ function add(itemId: string) {
       : [...s.list, { itemId, qty: 1, addedAt: Date.now() }];
     return { ...s, list };
   });
+  playSound('shopPop');
 }
 
 function setQty(itemId: string, qty: number) {
@@ -310,14 +312,17 @@ function setQty(itemId: string, qty: number) {
 
 /** bought: off the list, remembered for the "Häufig" row */
 function check(itemId: string) {
+  let removed = false;
   shopping.set((s) => {
     if (!s.list.some((e) => e.itemId === itemId)) return s;
+    removed = true;
     return {
       ...s,
       list: s.list.filter((e) => e.itemId !== itemId),
       bought: { ...s.bought, [itemId]: (s.bought[itemId] ?? 0) + 1 },
     };
   });
+  if (removed) playSound('shopPop');
 }
 
 /** undo a check */

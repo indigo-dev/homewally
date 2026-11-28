@@ -126,7 +126,10 @@ const isWidget = (w: unknown): w is WidgetInstance =>
   (w.type !== 'app' || isAppLink(w.app));
 
 /** nothing stored yet = the default layout */
-const layout = persisted<WidgetInstance[]>(KEY, (raw) => (Array.isArray(raw) ? arrayOf(raw, isWidget).map(cleanPos) : defaults()));
+export const dashboardLayout = persisted<WidgetInstance[]>(KEY, (raw) =>
+  Array.isArray(raw) ? arrayOf(raw, isWidget).map(cleanPos) : defaults(),
+);
+const layout = dashboardLayout;
 
 export function useLayout(): WidgetInstance[] {
   return usePersisted(layout);

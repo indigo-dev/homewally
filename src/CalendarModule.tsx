@@ -4,11 +4,14 @@ import type { CalEvent, ViewMode } from './types';
 import { useStore } from './store';
 import { rangeFor, startOfDay, stepDate, titleFor } from './lib/dates';
 import { proxyOf, useEvents } from './lib/events';
+import { newLocalEvent, toYmd, useLocalEvents, type LocalEvent } from './lib/localEvents';
+import { playSound } from './lib/sounds';
 import { useHolidayMarks } from './lib/holidays';
 import { clampDays } from './lib/config';
 import { useSwipe } from './lib/hooks';
 import { Header, MemberFilter } from './components/Header';
 import { EventDetail } from './components/EventDetail';
+import { EventEditor } from './components/EventEditor';
 import { TimeGridView } from './views/TimeGridView';
 import { MonthView } from './views/MonthView';
 import { YearView } from './views/YearView';
@@ -28,10 +31,12 @@ interface Props {
 
 export function CalendarModule({ reloadKey, settingsOpen, onSettings, onWeather }: Props) {
   const { settings, updateSettings, members, calendars, selectedIds, memberById } = useStore();
+  const { events: localList, upsert: upsertLocal, remove: removeLocal } = useLocalEvents();
   const nDays = settings.multiDays;
   const [view, setView] = useState<ViewMode>(settings.defaultView);
   const [date, setDate] = useState(() => startOfDay(new Date()));
   const [selected, setSelected] = useState<CalEvent | null>(null);
+  const [editingLocal, setEditingLocal] = useState<{ ev: LocalEvent; isNew: boolean } | null>(null);
   const [nonce, setNonce] = useState(0);
   const [banner, setBanner] = useState<string | undefined>();
   const [mountedAt] = useState(Date.now);
@@ -167,7 +172,7 @@ export function CalendarModule({ reloadKey, settingsOpen, onSettings, onWeather 
         title={titleFor(view, date, settings.weekStartsOn, nDays)}
         view={view}
         multiDays={nDays}
-        onMultiDays={(n) => setDayCount(clampDays(n))}
+        onMultiDays={(n) => setDayCount(n)}
         loading={loading}
         onView={(v) => v !== view && softly(() => setView(v))}
         onStep={step}
@@ -178,6 +183,14 @@ export function CalendarModule({ reloadKey, settingsOpen, onSettings, onWeather 
         onRefresh={() => setNonce((n) => n + 1)}
         onSettings={onSettings}
         onWeather={onWeather}
+        onAddEvent={
+          settings.localCalendarEnabled && members.length > 0
+            ? () => {
+                const who = selectedIds.size > 0 ? [...selectedIds] : members.map((m) => m.id);
+                setEditingLocal({ ev: newLocalEvent(who, toYmd(date)), isNew: true });
+              }
+            : undefined
+        }
         filter={<MemberFilter issues={memberIssues} onIssue={setBanner} />}
         away={!showsToday}
       />
@@ -196,7 +209,41 @@ export function CalendarModule({ reloadKey, settingsOpen, onSettings, onWeather 
         {view === 'agenda' && <AgendaView {...viewProps} />}
       </main>
       {lastUpdated && <div className="statusline muted">{t('calendar.updated', { time: fmtTime(lastUpdated) })}</div>}
-      {selected && <EventDetail event={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <EventDetail
+          event={selected}
+          onClose={() => setSelected(null)}
+          onEdit={(id) => {
+            const found = localList.find((x) => x.id === id);
+            setSelected(null);
+            if (found) setEditingLocal({ ev: found, isNew: false });
+          }}
+          onDelete={(id) => {
+            removeLocal(id);
+            setSelected(null);
+          }}
+        />
+      )}
+      {editingLocal && (
+        <EventEditor
+          initial={editingLocal.ev}
+          isNew={editingLocal.isNew}
+          onSave={(ev) => {
+            upsertLocal(ev);
+            playSound('eventSaved');
+            setEditingLocal(null);
+          }}
+          onDelete={
+            editingLocal.isNew
+              ? undefined
+              : () => {
+                  removeLocal(editingLocal.ev.id);
+                  setEditingLocal(null);
+                }
+          }
+          onClose={() => setEditingLocal(null)}
+        />
+      )}
     </>
   );
 }

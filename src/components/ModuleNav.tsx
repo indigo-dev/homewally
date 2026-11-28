@@ -36,11 +36,12 @@ const ORDER_KEY = 'fc.moduleOrder';
 const SORTABLE = MODULES.filter((m) => m.id !== 'dashboard').map((m) => m.id);
 const HOLD_MS = 380;
 
-const orderStore = persisted<ModuleId[]>(ORDER_KEY, (raw) => {
+export const moduleOrderStore = persisted<ModuleId[]>(ORDER_KEY, (raw) => {
   const known = arrayOf(raw, (id): id is ModuleId => SORTABLE.includes(id as ModuleId));
   // modules added later go to the end
   return [...new Set([...known, ...SORTABLE])];
 });
+const orderStore = moduleOrderStore;
 const setOrder = (order: ModuleId[]) => orderStore.set(order);
 
 /** position of a module in the navigation as the user sorted it */

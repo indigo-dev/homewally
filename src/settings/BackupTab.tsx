@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useStore } from '../store';
-import { exportConfig, readConfigFile } from '../lib/config';
+import { applyBackup, exportBackup, readBackupFile } from '../lib/backup';
 import { hasDemoData, loadDemo, removeDemo, resetApp, useDemoSummary, type DemoSummary } from '../lib/demoData';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Group } from './controls';
@@ -27,10 +27,10 @@ export function BackupTab() {
   const onImport = async (f: File | undefined) => {
     if (!f) return;
     try {
-      const cfg = await readConfigFile(f);
-      const calendars = t('settings.backup.calendars', { n: cfg.calendars.length });
-      if (!confirm(t('settings.backup.confirmImport', { n: cfg.members.length, calendars }))) return;
-      replaceConfig(cfg);
+      const backup = await readBackupFile(f);
+      const calendars = t('settings.backup.calendars', { n: backup.config.calendars.length });
+      if (!confirm(t('settings.backup.confirmImport', { n: backup.config.members.length, calendars }))) return;
+      applyBackup(backup, replaceConfig);
       setMsg({ ok: true, text: t('settings.backup.imported') });
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) });
@@ -61,7 +61,7 @@ export function BackupTab() {
       <p>{t('settings.backup.intro')}</p>
       <p className="warn">{t('settings.backup.warn')}</p>
       <div className="row-actions">
-        <button className="btn primary" onClick={() => exportConfig(config)}>
+        <button className="btn primary" onClick={() => exportBackup(config)}>
           {t('settings.backup.export')}
         </button>
         <button className="btn" onClick={() => fileRef.current?.click()}>

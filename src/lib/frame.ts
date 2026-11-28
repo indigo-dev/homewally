@@ -136,7 +136,7 @@ function parseSettings(raw: unknown): FrameSettings {
   };
 }
 
-const frameSettings = persisted(KEY, parseSettings);
+export const frameSettings = persisted(KEY, parseSettings);
 
 export function patchFrameSettings(patch: Partial<FrameSettings>) {
   frameSettings.set((s) => ({ ...s, ...patch }));

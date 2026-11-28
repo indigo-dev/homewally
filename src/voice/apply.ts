@@ -1,7 +1,8 @@
 import { CATEGORIES, norm, type CategoryId, type ListEntry, type ShopItem } from '../lib/shopping';
 import { newTodo, type Todo } from '../lib/todos';
+import { newLocalEvent, type LocalEvent } from '../lib/localEvents';
 import type { Member } from '../types';
-import { EVERYONE, type CheckTodoRequest, type Command } from './command';
+import { EVERYONE, type CheckTodoRequest, type Command, type DeleteEventRequest } from './command';
 import { t, locale } from '../i18n';
 import { fmt } from '../lib/dates';
 
@@ -23,6 +24,10 @@ export interface ApplyDeps {
   todos: Todo[];
   upsertTodo: (t: Todo) => void;
   removeTodo: (id: string) => void;
+  localCalendarEnabled?: boolean;
+  localEvents?: LocalEvent[];
+  upsertLocalEvent?: (e: LocalEvent) => void;
+  removeLocalEvent?: (id: string) => void;
 }
 
 export interface Line {
@@ -67,7 +72,7 @@ export function whoOf(members: Member[], names: string[]): Member[] {
   return names.includes(EVERYONE) ? members : findMembers(members, names);
 }
 
-const WHO_PARTS = ['addTodos', 'askTodos', 'askTimetable'] as const;
+const WHO_PARTS = ['addTodos', 'addEvents', 'askTodos', 'askTimetable'] as const;
 
 /** true if a request about people names nobody of the family – then the app asks "für wen?" */
 export function missingWho(cmd: Command, members: Member[]): boolean {
@@ -78,7 +83,13 @@ export function missingWho(cmd: Command, members: Member[]): boolean {
 export function fillWho(cmd: Command, members: Member[], names: string[]): Command {
   const fill = <T extends { members: string[] }>(rs: T[]) =>
     rs.map((r) => (whoOf(members, r.members).length ? r : { ...r, members: names }));
-  return { ...cmd, addTodos: fill(cmd.addTodos), askTodos: fill(cmd.askTodos), askTimetable: fill(cmd.askTimetable) };
+  return {
+    ...cmd,
+    addTodos: fill(cmd.addTodos),
+    addEvents: fill(cmd.addEvents),
+    askTodos: fill(cmd.askTodos),
+    askTimetable: fill(cmd.askTimetable),
+  };
 }
 
 const words = (s: string) =>
@@ -106,7 +117,29 @@ export function findTodo(todos: Todo[], req: CheckTodoRequest, members: Member[]
   return scored[0].x;
 }
 
-type Changes = Pick<Command, 'addShopping' | 'checkShopping' | 'addTodos' | 'checkTodos'>;
+/** finds the local family calendar event meant by a spoken deletion request */
+export function findLocalEvent(events: LocalEvent[], req: DeleteEventRequest, members: Member[]): LocalEvent | undefined {
+  const who = whoOf(members, req.members);
+  const candidates = events.filter(
+    (x) => (!req.date || x.date === req.date) && (!who.length || x.memberIds.some((id) => who.some((m) => m.id === id))),
+  );
+  const n = norm(req.title);
+  const exact = candidates.filter((x) => norm(x.title) === n);
+  if (exact.length === 1) return exact[0];
+  const want = words(req.title);
+  const scored = candidates
+    .map((x) => {
+      const have = words(x.title);
+      return { x, hits: want.filter((w) => have.some((h) => h.startsWith(w) || w.startsWith(h))).length };
+    })
+    .filter((s) => s.hits > 0)
+    .sort((a, b) => b.hits - a.hits);
+  if (!scored.length || (scored[1] && scored[1].hits === scored[0].hits)) return undefined;
+  return scored[0].x;
+}
+
+type Changes = Pick<Command, 'addShopping' | 'checkShopping' | 'addTodos' | 'checkTodos'> &
+  Partial<Pick<Command, 'addEvents' | 'deleteEvents'>>;
 
 export function applyCommand(cmd: Changes, deps: ApplyDeps): Applied {
   const lines: Line[] = [];
@@ -190,6 +223,65 @@ export function applyCommand(cmd: Changes, deps: ApplyDeps): Applied {
     undos.push(() => deps.upsertTodo(todo));
     lines.push({ icon: '✅', text: t('voice.todoChecked', { text: todo.text }) });
     speech.push(t('voice.todoDone', { text: todo.text }));
+  }
+
+  /* local family calendar: add events */
+  const localEnabled = deps.localCalendarEnabled !== false;
+  let localList = deps.localEvents ?? [];
+  for (const req of cmd.addEvents ?? []) {
+    if (!localEnabled || !deps.upsertLocalEvent || !deps.removeLocalEvent) {
+      lines.push({ icon: '⚠️', text: t('voice.localCalOff') });
+      speech.push(t('voice.localCalOff'));
+      continue;
+    }
+    if (deps.members.length === 0) {
+      lines.push({ icon: '⚠️', text: t('voice.noFamily', { text: req.title }) });
+      continue;
+    }
+    const who = whoOf(deps.members, req.members);
+    const ev: LocalEvent = {
+      ...newLocalEvent(
+        (who.length ? who : deps.members).map((m) => m.id),
+        req.date,
+      ),
+      title: req.title,
+      endDate: req.endDate,
+      allDay: req.allDay,
+      startTime: req.startTime,
+      endTime: req.endTime,
+      repeat: req.repeat,
+      location: req.location,
+    };
+    deps.upsertLocalEvent(ev);
+    localList = [...localList, ev];
+    const remove = deps.removeLocalEvent;
+    undos.push(() => remove(ev.id));
+    const dayStr = fmt(new Date(`${ev.date}T00:00`), { weekday: 'short', day: 'numeric', month: 'numeric' });
+    const timeStr = ev.allDay ? '' : ` ${ev.startTime}`;
+    const forWho = who.length && who.length < deps.members.length ? t('voice.forWhom', { names: joinAnd(who.map((m) => m.name)) }) : '';
+    lines.push({ icon: '📅', text: t('voice.eventAddedLine', { title: ev.title, when: `${dayStr}${timeStr}`, who: forWho }) });
+    speech.push(t('voice.eventAddedSpeech', { title: ev.title }));
+  }
+
+  /* local family calendar: delete events */
+  for (const req of cmd.deleteEvents ?? []) {
+    if (!localEnabled || !deps.upsertLocalEvent || !deps.removeLocalEvent) {
+      lines.push({ icon: '⚠️', text: t('voice.localCalOff') });
+      speech.push(t('voice.localCalOff'));
+      continue;
+    }
+    const ev = findLocalEvent(localList, req, deps.members);
+    if (!ev) {
+      lines.push({ icon: '🤷', text: t('voice.eventNotFound', { title: req.title }) });
+      speech.push(t('voice.eventNotFound', { title: req.title }));
+      continue;
+    }
+    deps.removeLocalEvent(ev.id);
+    localList = localList.filter((x) => x.id !== ev.id);
+    const upsert = deps.upsertLocalEvent;
+    undos.push(() => upsert(ev));
+    lines.push({ icon: '🗑️', text: t('voice.eventDeletedLine', { title: ev.title }) });
+    speech.push(t('voice.eventDeletedSpeech', { title: ev.title }));
   }
 
   return {

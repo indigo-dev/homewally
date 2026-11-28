@@ -5,6 +5,7 @@ import { softly, vtItem } from '../lib/transition';
 import { Sym } from '../components/Sym';
 import { LAYOUT, findPair, isFree, newDeal, reshuffle } from './logic/tiles';
 import { clockTime, submitResult, useRecords } from './store';
+import { playSound } from '../lib/sounds';
 import { Result } from './shared';
 import { nowMs } from './time';
 
@@ -69,6 +70,8 @@ export function TilePairs({ player }: { player: string }) {
     if (next.size === 0) {
       const s = Math.max(1, Math.round((nowMs() - started) / 1000));
       setEnd({ seconds: s, record: submitResult('tiles', player, s, true) });
+    } else {
+      playSound('gameMatch');
     }
   };
 

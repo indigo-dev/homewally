@@ -84,7 +84,7 @@
     --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(255, 255, 255, 0.3), 0 10px 34px rgba(40, 60, 110, 0.13);
     --glass-strong: rgba(255, 255, 255, 0.85);
     --glass-border: rgba(255, 255, 255, 0.75);
-    --sheet: rgba(255, 255, 255, 0.8);
+    --sheet: rgba(255, 255, 255, 0.9);
     --chip-veil: rgba(255, 255, 255, 0.72);
     --holiday: #d1442b;
     --school-text: #0a64c2;
@@ -115,7 +115,7 @@
     --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(255, 255, 255, 0.04), 0 10px 34px rgba(0, 0, 0, 0.35);
     --glass-strong: rgba(255, 255, 255, 0.16);
     --glass-border: rgba(255, 255, 255, 0.14);
-    --sheet: rgba(30, 34, 48, 0.8);
+    --sheet: rgba(30, 34, 48, 0.92);
     --chip-veil: rgba(28, 32, 46, 0.62);
     --holiday: #ff8a6a;
     --school-text: #7cc4ff;
@@ -551,7 +551,7 @@
     --panel-border: rgba(255, 255, 255, 0.85);
     --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 8px 30px rgba(60, 50, 140, 0.1);
     --glow: rgba(109, 76, 255, 0.35);
-    --sheet: rgba(255, 255, 255, 0.82);
+    --sheet: rgba(255, 255, 255, 0.92);
     --display: 'Sora Variable', 'Manrope Variable', system-ui, sans-serif;
     --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
     --holiday: #c2410c;
@@ -587,7 +587,7 @@
     --panel-border: rgba(255, 255, 255, 0.13);
     --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 30px rgba(0, 0, 0, 0.3);
     --glow: rgba(34, 211, 238, 0.45);
-    --sheet: rgba(20, 20, 44, 0.84);
+    --sheet: rgba(20, 20, 44, 0.92);
     --holiday: #fb923c;
     --school-text: #7dd3fc;
     color-scheme: dark;

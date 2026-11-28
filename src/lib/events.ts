@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CalEvent, CalendarSource, DateRange, Member } from '../types';
 import { parseIcs, icsCalendarName } from './ics';
 import { demoEvents } from './demo';
-import { arrayOf, isString, storage } from './persisted';
+import { configStore } from './config';
+import { expandLocalEvents, localEvents } from './localEvents';
+import { arrayOf, isString, storage, usePersisted } from './persisted';
 import { isNative, nativeGetText } from '../native/launcher';
 import { t } from '../i18n';
 
@@ -229,6 +231,8 @@ export function useEvents(
   refreshNonce: number,
 ): EventsState {
   const [state, setState] = useState<EventsState>({ events: [], loading: false, status: {} });
+  const local = usePersisted(localEvents);
+  const localEnabled = usePersisted(configStore).settings.localCalendarEnabled;
   const runId = useRef(0);
   const lastNonce = useRef(refreshNonce);
   const active = calendars.filter((c) => c.enabled && c.url && c.memberIds.length > 0);
@@ -278,5 +282,12 @@ export function useEvents(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, sig, refreshNonce]);
 
-  return state;
+  const events = useMemo(() => {
+    if (!localEnabled || local.length === 0) return state.events;
+    const validIds = new Set(members.map((m) => m.id));
+    const expanded = expandLocalEvents(local, range, validIds);
+    return expanded.length ? merge([state.events, expanded]) : state.events;
+  }, [state.events, localEnabled, local, members, range]);
+
+  return { ...state, events };
 }

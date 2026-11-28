@@ -15,7 +15,8 @@ import { Dashboard } from './dashboard/Dashboard';
 import { GlyphIcon } from './components/Icon';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { VoiceButton } from './voice/VoiceButton';
-import { isNative, onAndroidBack } from './native/launcher';
+import { EventReminders } from './components/EventReminders';
+import { isNative, onAndroidBack, setSystemBars } from './native/launcher';
 import { t, useLanguage } from './i18n';
 
 /** the open module, per device */
@@ -111,8 +112,17 @@ export function App() {
     const apply = () => {
       const dark = settings.theme === 'dark' || (settings.theme === 'auto' && mq.matches);
       root.setAttribute('data-mode', dark ? 'dark' : 'light');
+      setSystemBars(dark);
       const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
-      if (bg) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
+      if (bg) {
+        // replace all theme-color metas (incl. media-scoped ones from index.html) so Android PWAs
+        // reliably repaint the status bar for the active style and light/dark choice
+        document.querySelectorAll('meta[name="theme-color"]').forEach((el) => el.remove());
+        const meta = document.createElement('meta');
+        meta.name = 'theme-color';
+        meta.content = bg;
+        document.head.appendChild(meta);
+      }
     };
     apply();
     mq.addEventListener('change', apply);
@@ -294,6 +304,7 @@ export function App() {
           />
         </Suspense>
       )}
+      <EventReminders />
     </div>
   );
 }

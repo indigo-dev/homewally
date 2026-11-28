@@ -90,6 +90,8 @@ export interface Settings {
   weatherIcons: WeatherIconSet;
   /** school area: timetables, bell times, subjects (off = hidden everywhere) */
   schoolEnabled: boolean;
+  /** local family calendar (stored only on this device, not synced) */
+  localCalendarEnabled: boolean;
 }
 
 export type UiStyle = 'wally' | 'classic' | 'clear' | 'flow' | 'aurora' | 'nodes' | 'minimal';
@@ -112,8 +114,10 @@ export interface CalEvent {
   location?: string;
   notes?: string;
   calendarName?: string;
-  /** subscribed calendars (CalendarSource ids) the event comes from; missing for demo events */
+  /** subscribed calendars (CalendarSource ids) the event comes from; missing for demo/local events */
   calendarIds?: string[];
+  /** id of the LocalEvent when this event comes from the local family calendar */
+  localId?: string;
   memberIds: string[];
 }
 

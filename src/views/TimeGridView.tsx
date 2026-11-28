@@ -6,6 +6,7 @@ import { addDays, dayKey, fmt, fmtClock, fmtTime, isSameDay, overlaps, startOfDa
 import { t } from '../i18n';
 import { useSize } from '../lib/hooks';
 import { AvatarStack } from '../components/Avatar';
+import { LocalMark } from '../components/Icon';
 import { markClass, membersOf, stripe, tint, type ViewProps } from './common';
 import { AllDayChip } from './AllDayChip';
 import { deg, describe, useHomeDays, type Day } from '../lib/weather';
@@ -352,7 +353,10 @@ export function TimeGridView({ date, now, events, onEvent, onOpen, marks, days, 
                     >
                       <span className="ev-stripe" style={{ background: stripe(ms) }} />
                       <span className="ev-body">
-                        <span className="ev-title">{e.title}</span>
+                        <span className="ev-title">
+                          {e.localId && <LocalMark title={t('calendar.local.badge')} />}
+                          {e.title}
+                        </span>
                         {!compact && (
                           <span className="ev-time">
                             {fmtTime(e.start)} – {fmtTime(e.end)}

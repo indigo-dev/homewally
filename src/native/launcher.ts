@@ -13,6 +13,8 @@ export interface InstalledApp {
   label: string;
   /** PNG/WebP data URL; missing if Android had no icon */
   icon?: string;
+  /** pre-installed system app (cannot be uninstalled directly) */
+  system?: boolean;
 }
 
 interface AppLauncherPlugin {
@@ -20,8 +22,11 @@ interface AppLauncherPlugin {
   getAppIcon(opts: { packageName: string; activity?: string }): Promise<{ icon: string; size: number }>;
   launch(opts: { packageName: string; activity?: string }): Promise<void>;
   openSettings(opts?: { page?: 'home' | 'app' }): Promise<void>;
+  openAppInfo(opts: { packageName: string }): Promise<void>;
+  uninstall(opts: { packageName: string }): Promise<void>;
   isDefaultLauncher(): Promise<{ value: boolean }>;
   setKeepAwake(opts: { enabled: boolean }): Promise<void>;
+  setSystemBars(opts: { dark: boolean }): Promise<void>;
   addListener(event: 'appsChanged', fn: () => void): Promise<PluginListenerHandle>;
 }
 
@@ -53,6 +58,10 @@ export const launchApp = (app: Pick<InstalledApp, 'packageName' | 'activity'>) =
 
 export const openAndroidSettings = (page?: 'home' | 'app') => AppLauncher.openSettings({ page });
 
+export const openAppInfo = (packageName: string) => AppLauncher.openAppInfo({ packageName });
+
+export const uninstallApp = (packageName: string) => AppLauncher.uninstall({ packageName });
+
 export async function isDefaultLauncher(): Promise<boolean> {
   if (!isNative) return false;
   return (await AppLauncher.isDefaultLauncher()).value;
@@ -60,6 +69,10 @@ export async function isDefaultLauncher(): Promise<boolean> {
 
 export function setKeepAwake(enabled: boolean) {
   if (isNative) AppLauncher.setKeepAwake({ enabled }).catch(() => {});
+}
+
+export function setSystemBars(dark: boolean) {
+  if (isNative) AppLauncher.setSystemBars({ dark }).catch(() => {});
 }
 
 /** Called when apps are installed or removed; returns the unsubscribe function. */

@@ -1,5 +1,6 @@
 import { useStore } from '../store';
 import { updateGamesSettings, useGamesSettings } from '../games/store';
+import { playSound, REMINDER_LEADS, updateSoundSettings, useSoundSettings } from '../lib/sounds';
 import { Group, Row, Stepper, Switch } from './controls';
 import { LANGUAGES, resolveLanguage, t, withLanguage, type LanguageSetting } from '../i18n';
 import { useMinute } from '../lib/clock';
@@ -71,8 +72,143 @@ export function DeviceTab() {
           </Row>
         </div>
       </Group>
+      <SoundRemindersGroup />
       <GamesGroup />
     </div>
+  );
+}
+
+/** Sounds, quiet hours and calendar event reminders on this device. */
+function SoundRemindersGroup() {
+  const s = useSoundSettings();
+  return (
+    <>
+      <Group title={t('settings.device.soundsTitle')} note={t('settings.device.soundsNote')}>
+        <div className="set-card">
+          <Row label={t('settings.device.soundsEnable')} hint={t('settings.device.soundsEnableHint')}>
+            <Switch
+              checked={s.enabled}
+              onChange={(enabled) => {
+                updateSoundSettings({ enabled });
+                if (enabled) playSound('todoDone', { force: true });
+              }}
+              label={t('settings.device.soundsEnable')}
+            />
+          </Row>
+          {s.enabled && (
+            <>
+              <Row label={t('settings.device.soundsVolume')}>
+                <div className="sound-vol-row">
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={5}
+                    value={Math.round(s.volume * 100)}
+                    onChange={(e) => updateSoundSettings({ volume: Number(e.target.value) / 100 })}
+                    aria-label={t('settings.device.soundsVolume')}
+                  />
+                  <span className="sound-vol-pct">{Math.round(s.volume * 100)} %</span>
+                  <button type="button" className="btn" onClick={() => playSound('todoDone', { force: true })}>
+                    {t('settings.device.soundsTest')}
+                  </button>
+                </div>
+              </Row>
+              <Row label={t('settings.device.soundsActions')} hint={t('settings.device.soundsActionsHint')}>
+                <Switch
+                  checked={s.actions}
+                  onChange={(actions) => updateSoundSettings({ actions })}
+                  label={t('settings.device.soundsActions')}
+                />
+              </Row>
+              <Row label={t('settings.device.soundsGames')} hint={t('settings.device.soundsGamesHint')}>
+                <Switch checked={s.games} onChange={(games) => updateSoundSettings({ games })} label={t('settings.device.soundsGames')} />
+              </Row>
+            </>
+          )}
+          <Row label={t('settings.device.quietHours')} hint={t('settings.device.quietHoursHint')}>
+            <Switch
+              checked={s.quietEnabled}
+              onChange={(quietEnabled) => updateSoundSettings({ quietEnabled })}
+              label={t('settings.device.quietHours')}
+            />
+          </Row>
+          {s.quietEnabled && (
+            <>
+              <Row label={t('settings.device.quietFrom')}>
+                <Stepper
+                  value={s.quietFrom}
+                  min={0}
+                  max={23}
+                  unit={t('settings.device.oClock')}
+                  onChange={(quietFrom) => updateSoundSettings({ quietFrom })}
+                />
+              </Row>
+              <Row label={t('settings.device.quietTo')}>
+                <Stepper
+                  value={s.quietTo}
+                  min={0}
+                  max={23}
+                  unit={t('settings.device.oClock')}
+                  onChange={(quietTo) => updateSoundSettings({ quietTo })}
+                />
+              </Row>
+            </>
+          )}
+        </div>
+      </Group>
+
+      <Group title={t('settings.device.remindersTitle')} note={t('settings.device.remindersNote')}>
+        <div className="set-card">
+          <Row label={t('settings.device.remindersEnable')} hint={t('settings.device.remindersEnableHint')}>
+            <Switch
+              checked={s.remindersEnabled}
+              onChange={(remindersEnabled) => updateSoundSettings({ remindersEnabled })}
+              label={t('settings.device.remindersEnable')}
+            />
+          </Row>
+          {s.remindersEnabled && (
+            <>
+              <Row label={t('settings.device.remindersLead')} hint={t('settings.device.remindersLeadHint')}>
+                <div className="segmented reminder-leads" role="radiogroup" aria-label={t('settings.device.remindersLead')}>
+                  {REMINDER_LEADS.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      role="radio"
+                      aria-checked={s.reminderMinutes === m}
+                      className={s.reminderMinutes === m ? 'active' : ''}
+                      onClick={() => updateSoundSettings({ reminderMinutes: m })}
+                    >
+                      {m === 0 ? t('settings.device.remindersAtStart') : `${m} ${t('common.minutesShort')}`}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <Row label={t('settings.device.remindersSound')} hint={t('settings.device.remindersSoundHint')}>
+                <div className="sound-vol-row">
+                  <button type="button" className="btn" onClick={() => playSound('reminder', { force: true })}>
+                    {t('settings.device.soundsTest')}
+                  </button>
+                  <Switch
+                    checked={s.reminderSound}
+                    onChange={(reminderSound) => updateSoundSettings({ reminderSound })}
+                    label={t('settings.device.remindersSound')}
+                  />
+                </div>
+              </Row>
+              <Row label={t('settings.device.remindersSpeak')} hint={t('settings.device.remindersSpeakHint')}>
+                <Switch
+                  checked={s.reminderSpeak}
+                  onChange={(reminderSpeak) => updateSoundSettings({ reminderSpeak })}
+                  label={t('settings.device.remindersSpeak')}
+                />
+              </Row>
+            </>
+          )}
+        </div>
+      </Group>
+    </>
   );
 }
 

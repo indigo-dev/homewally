@@ -13,6 +13,7 @@ import {
   type Place,
   type SearchHit,
 } from '../lib/weather';
+import { openAndroidSettings } from '../native/launcher';
 import { t } from '../i18n';
 
 export function PlacesSheet({ onClose }: { onClose: () => void }) {
@@ -94,7 +95,7 @@ export function AddPlace({ first = false, onAdded }: { first?: boolean; onAdded?
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ message: string; help?: string[] } | null>(null);
+  const [error, setError] = useState<{ message: string; help?: string[]; canOpenSettings?: boolean } | null>(null);
 
   // search while typing (debounced)
   useEffect(() => {
@@ -120,7 +121,11 @@ export function AddPlace({ first = false, onAdded }: { first?: boolean; onAdded?
       addPlace({ name: first ? t('weather.home') : t('weather.myLocation'), ...pos });
       onAdded?.();
     } catch (e) {
-      setError({ message: (e as Error).message, help: e instanceof LocateError ? e.help : undefined });
+      setError({
+        message: (e as Error).message,
+        help: e instanceof LocateError ? e.help : undefined,
+        canOpenSettings: e instanceof LocateError && e.canOpenSettings,
+      });
     } finally {
       setBusy(false);
     }
@@ -147,6 +152,11 @@ export function AddPlace({ first = false, onAdded }: { first?: boolean; onAdded?
                 <li key={h}>{h}</li>
               ))}
             </ol>
+          )}
+          {error.canOpenSettings && (
+            <button className="btn" onClick={() => openAndroidSettings('app')}>
+              {t('weather.locate.openAppSettings')}
+            </button>
           )}
         </div>
       )}

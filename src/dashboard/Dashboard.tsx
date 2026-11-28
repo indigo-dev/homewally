@@ -56,6 +56,7 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
     () => (settings.schoolEnabled ? stored : stored.filter((w) => w.type !== 'timetable')),
     [stored, settings.schoolEnabled],
   );
+  const [stageRef, stageSize] = useSize<HTMLDivElement>();
   const [gridRef, size] = useSize<HTMLDivElement>();
   const [gallery, setGallery] = useState(false);
 
@@ -101,7 +102,10 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
   );
 
   /* ---------------- grid geometry */
-  const { cols, cellW, rowH } = gridGeometry(size.width, size.height);
+  // height comes from the outer stage (minus .dash's net 10px vertical padding) so showing the edit
+  // toolbar never shrinks the measured height and never stretches the rows in edit mode
+  const gridHeight = stageSize.height > 0 ? Math.max(0, stageSize.height - 10) : size.height;
+  const { cols, cellW, rowH } = gridGeometry(size.width, gridHeight);
   // where every widget sits (hand-placed ones keep their cell), and the free cells in between
   const boxes = useMemo(() => layout.map((w) => ({ w: Math.min(SIZES[w.size].w, cols), h: SIZES[w.size].h })), [layout, cols]);
   const cells = useMemo(
@@ -331,116 +335,118 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
 
   return (
     <DashCtx.Provider value={data}>
-      {editing && (
-        <div className="dash-toolbar">
-          <span className="dash-hint muted">{t('dashboard.hint')}</span>
-          <span className="board-spacer" />
-          <button className="btn ghost" onClick={() => confirm(t('dashboard.confirmReset')) && resetLayout()}>
-            {t('common.reset')}
-          </button>
-          <button className="btn" onClick={() => setGallery(true)}>
-            {t('dashboard.addWidget')}
-          </button>
-          <button className="btn primary" onClick={() => onEditing(false)}>
-            {t('common.done')}
-          </button>
-        </div>
-      )}
-      <main
-        ref={gridRef}
-        className={`dash ${editing ? 'editing' : ''} ${drag ? 'dragging' : ''}`}
-        style={{ '--cols': cols, '--row': `${rowH}px`, '--gap': `${GAP}px` } as CSSProperties}
-      >
-        {size.width > 0 &&
-          layout.map((w, i) => {
-            const s = SIZES[w.size];
-            const Comp = WIDGET_COMPONENTS[w.type];
-            const span = Math.min(s.w, cols);
-            // wiggle angle so the corners move ~1.2px whatever the widget's size
-            const halfDiag = Math.hypot(span * cellW + (span - 1) * GAP, s.h * rowH + (s.h - 1) * GAP) / 2;
-            const wig = Math.min(0.9, Math.max(0.12, (1.2 / halfDiag) * (180 / Math.PI)));
-            return (
-              <section
-                key={w.id}
-                data-wid={w.id}
-                data-size={w.size}
-                className={`dw dw-${w.type} size-${w.size} ${drag?.id === w.id ? 'placeholder' : ''} ${sizeMenu?.id === w.id ? 'menu-open' : ''}`}
-                style={
-                  {
-                    gridColumn: `${cells[i].x + 1} / span ${span}`,
-                    gridRow: `${cells[i].y + 1} / span ${s.h}`,
-                    '--i': i,
-                    '--wig': `${wig.toFixed(3)}deg`,
-                  } as CSSProperties
-                }
-                onPointerDown={onPointerDown(w)}
-                onPointerUp={endPress}
-                onClick={onClick(w)}
-                onContextMenu={(e) => e.preventDefault()}
-              >
-                <div className="dw-inner">
-                  <ErrorBoundary label={widgetDef(w.type).title} compact>
-                    <Comp size={w.size} widget={w} />
-                  </ErrorBoundary>
-                </div>
-                {editing && (
-                  <>
-                    <button
-                      className="dw-edit-btn dw-remove"
-                      aria-label={t('dashboard.removeWidget', { title: widgetDef(w.type).title })}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeWidget(w.id);
-                      }}
-                    >
-                      −
-                    </button>
-                    {widgetDef(w.type).sizes.length > 1 && (
-                      <button
-                        className="dw-edit-btn dw-resize"
-                        aria-label={t('dashboard.resize', { size: SIZES[w.size].label, w: s.w, h: s.h })}
-                        aria-haspopup="menu"
-                        aria-expanded={sizeMenu?.id === w.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setSizeMenu((m) => (m?.id === w.id ? null : { id: w.id, rect }));
-                        }}
-                      >
-                        <SizeGlyph size={w.size} />
-                        {s.w}×{s.h}
-                      </button>
-                    )}
-                  </>
-                )}
-              </section>
-            );
-          })}
-        {/* free places while editing: a widget can be moved into any of them */}
-        {size.width > 0 &&
-          free.map((c) => (
-            <div
-              key={`hole-${c.x}-${c.y}`}
-              className="dash-hole"
-              aria-hidden
-              style={{ gridColumn: `${c.x + 1} / span 1`, gridRow: `${c.y + 1} / span 1` }}
-            />
-          ))}
-        {size.width > 0 && layout.length === 0 && (
-          <div className="dash-empty">
-            <p>{t('dashboard.empty')}</p>
-            <button
-              className="btn primary"
-              onClick={() => {
-                onEditing(true);
-                setGallery(true);
-              }}
-            >
-              {t('dashboard.addWidgetLong')}
+      <div ref={stageRef} className="dash-stage">
+        {editing && (
+          <div className="dash-toolbar">
+            <span className="dash-hint muted">{t('dashboard.hint')}</span>
+            <span className="board-spacer" />
+            <button className="btn ghost" onClick={() => confirm(t('dashboard.confirmReset')) && resetLayout()}>
+              {t('common.reset')}
+            </button>
+            <button className="btn" onClick={() => setGallery(true)}>
+              {t('dashboard.addWidget')}
+            </button>
+            <button className="btn primary" onClick={() => onEditing(false)}>
+              {t('common.done')}
             </button>
           </div>
         )}
-      </main>
+        <main
+          ref={gridRef}
+          className={`dash ${editing ? 'editing' : ''} ${drag ? 'dragging' : ''}`}
+          style={{ '--cols': cols, '--row': `${rowH}px`, '--gap': `${GAP}px` } as CSSProperties}
+        >
+          {size.width > 0 &&
+            layout.map((w, i) => {
+              const s = SIZES[w.size];
+              const Comp = WIDGET_COMPONENTS[w.type];
+              const span = Math.min(s.w, cols);
+              // wiggle angle so the corners move ~1.2px whatever the widget's size
+              const halfDiag = Math.hypot(span * cellW + (span - 1) * GAP, s.h * rowH + (s.h - 1) * GAP) / 2;
+              const wig = Math.min(0.9, Math.max(0.12, (1.2 / halfDiag) * (180 / Math.PI)));
+              return (
+                <section
+                  key={w.id}
+                  data-wid={w.id}
+                  data-size={w.size}
+                  className={`dw dw-${w.type} size-${w.size} ${drag?.id === w.id ? 'placeholder' : ''} ${sizeMenu?.id === w.id ? 'menu-open' : ''}`}
+                  style={
+                    {
+                      gridColumn: `${cells[i].x + 1} / span ${span}`,
+                      gridRow: `${cells[i].y + 1} / span ${s.h}`,
+                      '--i': i,
+                      '--wig': `${wig.toFixed(3)}deg`,
+                    } as CSSProperties
+                  }
+                  onPointerDown={onPointerDown(w)}
+                  onPointerUp={endPress}
+                  onClick={onClick(w)}
+                  onContextMenu={(e) => e.preventDefault()}
+                >
+                  <div className="dw-inner">
+                    <ErrorBoundary label={widgetDef(w.type).title} compact>
+                      <Comp size={w.size} widget={w} />
+                    </ErrorBoundary>
+                  </div>
+                  {editing && (
+                    <>
+                      <button
+                        className="dw-edit-btn dw-remove"
+                        aria-label={t('dashboard.removeWidget', { title: widgetDef(w.type).title })}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeWidget(w.id);
+                        }}
+                      >
+                        −
+                      </button>
+                      {widgetDef(w.type).sizes.length > 1 && (
+                        <button
+                          className="dw-edit-btn dw-resize"
+                          aria-label={t('dashboard.resize', { size: SIZES[w.size].label, w: s.w, h: s.h })}
+                          aria-haspopup="menu"
+                          aria-expanded={sizeMenu?.id === w.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setSizeMenu((m) => (m?.id === w.id ? null : { id: w.id, rect }));
+                          }}
+                        >
+                          <SizeGlyph size={w.size} />
+                          {s.w}×{s.h}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </section>
+              );
+            })}
+          {/* free places while editing: a widget can be moved into any of them */}
+          {size.width > 0 &&
+            free.map((c) => (
+              <div
+                key={`hole-${c.x}-${c.y}`}
+                className="dash-hole"
+                aria-hidden
+                style={{ gridColumn: `${c.x + 1} / span 1`, gridRow: `${c.y + 1} / span 1` }}
+              />
+            ))}
+          {size.width > 0 && layout.length === 0 && (
+            <div className="dash-empty">
+              <p>{t('dashboard.empty')}</p>
+              <button
+                className="btn primary"
+                onClick={() => {
+                  onEditing(true);
+                  setGallery(true);
+                }}
+              >
+                {t('dashboard.addWidgetLong')}
+              </button>
+            </div>
+          )}
+        </main>
+      </div>
       {drag && dragged && (
         <div
           className={`dw dw-${dragged.type} size-${dragged.size} dw-ghost`}

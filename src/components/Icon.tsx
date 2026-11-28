@@ -10,6 +10,12 @@ const PATHS = {
       <circle cx="9" cy="17" r="2" />
     </>
   ),
+  gear: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </>
+  ),
   dashboard: (
     <>
       <rect x="3" y="3" width="8" height="10" rx="2" />
@@ -143,5 +149,17 @@ export function GlyphIcon({ glyph, name }: { glyph: string; name: IconName }) {
       </span>
       <Icon name={name} />
     </>
+  );
+}
+
+/** Minimal inline house mark shown on events from the local family calendar. */
+export function LocalMark({ title }: { title?: string }) {
+  return (
+    <span className="local-mark" title={title} aria-hidden>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.5 7.5 8 3l5.5 4.5" />
+        <path d="M4.2 6.8V13h7.6V6.8" />
+      </svg>
+    </span>
   );
 }

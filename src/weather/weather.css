@@ -170,12 +170,13 @@
        3 columns). */
     .wx-board {
       --tile: calc(((100cqw - 28px) * 2 / 3 - 12px) / 3);
-      /* exactly the height that is there (not the content's), but never so low that the tiles get squashed */
-      flex: 1 0 0;
+      /* fill the viewport when there is spare room, but always grow to fit the content so the
+         bottom tiles never overlap the credit line and the 7-day card never clips its rows */
+      flex: 1 0 auto;
       min-height: 560px;
       grid-template-columns: minmax(300px, 4fr) minmax(0, 4fr) minmax(0, 4fr);
-      /* top row: never lower than its content (the now card clips, so "auto" would let it shrink) */
-      grid-template-rows: minmax(max-content, 1fr) minmax(0, calc(2 * var(--tile) + 12px));
+      /* neither row may collapse below its content; on tall screens the tiles cap at two square rows */
+      grid-template-rows: minmax(max-content, 1fr) minmax(max-content, calc(2 * var(--tile) + 12px));
       grid-template-areas:
         'now tl tl'
         'tiles tiles week';
@@ -1104,7 +1105,10 @@
     gap: 14px;
     padding: 22px;
     border-radius: 24px;
-    background: var(--surface);
+    border: 1px solid var(--panel-border, var(--line));
+    background: var(--sheet, var(--surface));
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    backdrop-filter: blur(28px) saturate(160%);
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
   }
   .wx-sheet-head {

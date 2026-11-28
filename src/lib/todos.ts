@@ -1,5 +1,6 @@
 import { uid } from './id';
 import { arrayOf, isRecord, persisted, usePersisted } from './persisted';
+import { playSound } from './sounds';
 
 const KEY = 'fc.todos';
 
@@ -42,7 +43,15 @@ function remove(id: string) {
   todos.set((cur) => cur.filter((x) => x.id !== id));
 }
 function toggleDone(id: string) {
-  todos.set((cur) => cur.map((x) => (x.id === id ? { ...x, done: !x.done, doneAt: x.done ? undefined : Date.now() } : x)));
+  let becameDone = false;
+  todos.set((cur) =>
+    cur.map((x) => {
+      if (x.id !== id) return x;
+      if (!x.done) becameDone = true;
+      return { ...x, done: !x.done, doneAt: x.done ? undefined : Date.now() };
+    }),
+  );
+  if (becameDone) playSound('todoDone');
 }
 function patchMany(patches: Record<string, Partial<Todo>>) {
   todos.set((cur) => cur.map((x) => (patches[x.id] ? { ...x, ...patches[x.id] } : x)));

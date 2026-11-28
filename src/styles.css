@@ -287,11 +287,11 @@
     flex: 1;
     min-width: 0;
   }
-  .cal-bar > .nav {
+  .cal-bar > .segmented {
     flex: none;
     margin-left: auto;
   }
-  .cal-bar > .segmented {
+  .cal-topbar .nav {
     flex: none;
   }
   /* a little tighter, so filter, paging and views fit one row on a landscape tablet */
@@ -315,8 +315,8 @@
       font-size: 1.2rem;
       white-space: normal;
     }
-    /* phones page by swiping – the arrows would only crowd the person filter */
-    .cal-bar > .nav .icon-btn {
+    /* phones page by swiping – the arrows would only crowd the top bar */
+    .cal-topbar .nav .icon-btn {
       display: none;
     }
     .cal-topbar .topbar-right {
@@ -330,7 +330,21 @@
     gap: 8px;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: 2px;
+    /* room for the error badge above/right of chips so overflow-x: auto never clips it */
+    padding: 8px 8px 6px 2px;
+    margin: -6px 0 -4px;
+  }
+  .filterbar[data-fade='right'] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+  .filterbar[data-fade='left'] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 28px);
+    mask-image: linear-gradient(to right, transparent, #000 28px);
+  }
+  .filterbar[data-fade='both'] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
   }
   .chip-wrap {
     position: relative;
@@ -372,14 +386,21 @@
   }
   .warn-badge {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: var(--danger);
     color: #fff;
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     font-weight: 700;
+    line-height: 1;
     border-radius: 999px;
-    padding: 2px 7px;
+    box-shadow: 0 0 0 2px var(--bg);
   }
   .banner {
     padding: 10px 14px;
@@ -957,7 +978,7 @@
     padding: 20px;
   }
   .modal {
-    background: var(--surface);
+    background: var(--sheet, var(--surface));
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
     max-height: 100%;
@@ -992,7 +1013,202 @@
   .modal-actions {
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
     margin-top: 12px;
+  }
+  .local-mark {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: -0.12em;
+    margin-right: 4px;
+    opacity: 0.72;
+    flex: none;
+  }
+  .local-mark svg {
+    width: 0.92em;
+    height: 0.92em;
+  }
+  .cal-add-btn {
+    white-space: nowrap;
+    padding: 0 14px;
+  }
+  .event-editor {
+    width: min(520px, 100%);
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .event-editor-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .event-editor-head h2 {
+    margin: 0;
+    font-size: 1.3rem;
+  }
+  .event-editor-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .event-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+  }
+  .event-field > span {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .event-field input,
+  .event-field textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    resize: vertical;
+  }
+  .event-editor-members {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .event-editor-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 36px;
+    font-weight: 600;
+  }
+  .event-editor-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .event-editor-grid.timed {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .event-repeat {
+    width: 100%;
+  }
+  .event-repeat > button {
+    flex: 1;
+    padding: 0 8px;
+    font-size: 0.85rem;
+  }
+  .event-editor-note {
+    margin: 2px 0 0;
+  }
+  .event-editor-actions {
+    margin-top: 2px;
+  }
+  @media (max-width: 520px) {
+    .event-editor-grid,
+    .event-editor-grid.timed {
+      grid-template-columns: 1fr;
+    }
+  }
+  .reminder-stack {
+    position: fixed;
+    top: max(14px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 90;
+    width: min(560px, calc(100vw - 24px));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .reminder-banner {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px 12px 12px;
+    border-radius: 18px;
+    border: 1px solid var(--panel-border, var(--line));
+    background: var(--sheet, var(--surface));
+    -webkit-backdrop-filter: blur(26px) saturate(160%);
+    backdrop-filter: blur(26px) saturate(160%);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+    animation: reminder-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @keyframes reminder-in {
+    from {
+      opacity: 0;
+      transform: translateY(-14px) scale(0.97);
+    }
+  }
+  .reminder-bar {
+    width: 5px;
+    align-self: stretch;
+    border-radius: 999px;
+    flex: none;
+  }
+  .reminder-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .reminder-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    flex-wrap: wrap;
+  }
+  .reminder-when {
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .reminder-title {
+    font-size: 1.02rem;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .reminder-ok {
+    flex: none;
+    min-height: 38px;
+    padding: 0 14px;
+  }
+  .sound-vol-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sound-vol-row input[type='range'] {
+    width: 130px;
+    accent-color: var(--accent);
+  }
+  .sound-vol-pct {
+    min-width: 3.2em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+  .reminder-leads {
+    flex-wrap: wrap;
+  }
+  .reminder-leads > button {
+    padding: 0 10px;
+    font-size: 0.84rem;
   }
   .confirm-dialog {
     width: min(480px, 100%);

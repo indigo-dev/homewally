@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { BUILTIN, useShopping } from '../lib/shopping';
 import { useTodos } from '../lib/todos';
+import { useLocalEvents } from '../lib/localEvents';
 import { useWeatherSettings } from '../lib/weather';
 import { requestCalendar } from '../lib/calendarNav';
 import { fmt } from '../lib/dates';
@@ -15,6 +16,7 @@ import { DEFAULT_MODEL, updateVoiceSettings, useVoiceSettings } from './settings
 import './voice.css';
 import { t } from '../i18n';
 import { speak as speakAloud, stopSpeaking } from '../native/speech';
+import { playSound } from '../lib/sounds';
 
 type Phase =
   | { s: 'idle' }
@@ -43,9 +45,10 @@ const fromYmd = (s: string) => new Date(`${s}T00:00`);
 /** Always reachable microphone button plus the card that shows what was understood and done. */
 export function VoiceButton({ onOpenModule, onSettings }: { onOpenModule: (id: ModuleId) => void; onSettings: () => void }) {
   const voice = useVoiceSettings();
-  const { members, selectMembers } = useStore();
+  const { members, settings, selectMembers } = useStore();
   const shop = useShopping();
   const todos = useTodos();
+  const localCal = useLocalEvents();
   const { places } = useWeatherSettings();
   const [phase, setPhase] = useState<Phase>({ s: 'idle' });
   const [level, setLevel] = useState(0);
@@ -105,6 +108,10 @@ export function VoiceButton({ onOpenModule, onSettings }: { onOpenModule: (id: M
       todos: todos.todos,
       upsertTodo: todos.upsert,
       removeTodo: todos.remove,
+      localCalendarEnabled: settings.localCalendarEnabled,
+      localEvents: localCal.events,
+      upsertLocalEvent: localCal.upsert,
+      removeLocalEvent: localCal.remove,
     });
 
     let shown: string | undefined;
@@ -125,6 +132,7 @@ export function VoiceButton({ onOpenModule, onSettings }: { onOpenModule: (id: M
     }
 
     setPhase({ s: 'result', cmd, applied, shown });
+    if (applied.lines.length > 0) playSound('voiceOk');
     // "zeig …" says nothing; questions speak in their answers
     const said = [...applied.speech];
     if (cmd.reply) said.push(cmd.reply);
@@ -150,6 +158,8 @@ export function VoiceButton({ onOpenModule, onSettings }: { onOpenModule: (id: M
             .filter((x) => !x.done)
             .slice(0, 40)
             .map((x) => x.text),
+          localEvents: settings.localCalendarEnabled ? localCal.events.slice(0, 40).map((e) => `${e.title} (${e.date})`) : [],
+          localCalendarEnabled: settings.localCalendarEnabled,
         },
         { apiKey: voice.apiKey, model: voice.model, fallbackModel: DEFAULT_MODEL },
         ctrl.signal,
@@ -169,6 +179,7 @@ export function VoiceButton({ onOpenModule, onSettings }: { onOpenModule: (id: M
       finish(cmd);
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
+      playSound('voiceError');
       setPhase({
         s: 'error',
         message: e instanceof VoiceError ? e.message : t('voice.wentWrong'),
@@ -204,6 +215,7 @@ export function VoiceButton({ onOpenModule, onSettings }: { onOpenModule: (id: M
       return;
     }
     setPhase({ s: 'listening' });
+    playSound('voiceStart');
     const input = await record(my);
     if (step.current !== my) return;
     if (!input) {

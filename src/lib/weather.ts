@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { uid } from './id';
 import { arrayOf, isRecord, persisted, storage, usePersisted } from './persisted';
+import { isNative } from '../native/launcher';
 import { getLanguage, t, type Messages } from '../i18n';
 import { dayKey, fmtClock, fmtHHMM, uses12h } from './dates';
 
@@ -261,6 +262,7 @@ export class LocateError extends Error {
   constructor(
     message: string,
     public help?: string[],
+    public canOpenSettings = false,
   ) {
     super(message);
   }
@@ -297,6 +299,9 @@ export async function locate(): Promise<{ lat: number; lon: number }> {
 }
 
 function denied() {
+  if (isNative) {
+    return new LocateError(t('weather.locate.denied'), [t('weather.locate.deniedAndroid')], true);
+  }
   return new LocateError(
     t('weather.locate.denied'),
     isApple()
