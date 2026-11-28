@@ -16,6 +16,7 @@ import { GlyphIcon } from './components/Icon';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { VoiceButton } from './voice/VoiceButton';
 import { EventReminders } from './components/EventReminders';
+import { useBatteryMonitor } from './lib/battery';
 import { isNative, onAndroidBack, setSystemBars } from './native/launcher';
 import { t, useLanguage } from './i18n';
 
@@ -75,6 +76,7 @@ export function App() {
   const frameIds = (photos ?? []).filter((p) => frameCfg.selected.includes(p.id)).map((p) => p.id);
 
   useWakeLock(settings.keepAwake);
+  useBatteryMonitor();
   // the games corner or the school area was switched off while open: back to the overview
   const games = useGamesSettings();
   useEffect(() => {

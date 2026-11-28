@@ -12,6 +12,7 @@ import { PhotosWidget } from './PhotosWidget';
 import { HolidaysWidget } from './HolidaysWidget';
 import { FamilyWidget } from './FamilyWidget';
 import { AppWidget } from './AppWidget';
+import { BatteryWidget } from './BatteryWidget';
 
 export { DashCtx, type DashData } from './shared';
 
@@ -28,4 +29,5 @@ export const WIDGET_COMPONENTS: Record<WidgetType, (p: WidgetProps) => ReactNode
   pollen: PollenWidget,
   family: FamilyWidget,
   app: AppWidget,
+  battery: BatteryWidget,
 };

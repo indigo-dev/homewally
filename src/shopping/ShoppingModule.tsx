@@ -84,6 +84,7 @@ export function ShoppingModule() {
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [undo, setUndo] = useState<{ entry: ListEntry; name: string } | null>(null);
   const [creating, setCreating] = useState<{ name: string; cat: CategoryId } | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const undoTimer = useRef<number | undefined>(undefined);
 
   const items = useMemo(() => {
@@ -102,6 +103,7 @@ export function ShoppingModule() {
       .sort((a, b) => order.get(a.item.cat)! - order.get(b.item.cat)! || a.entry.addedAt - b.entry.addedAt);
   }, [shop.list, itemById]);
   const listCount = listed.length;
+  const listDensity = listCount >= 15 ? 'compact' : listCount >= 7 ? 'medium' : 'normal';
   // the list by department, in the order of the store (CATEGORIES)
   const listGroups = useMemo(() => {
     const groups: { cat: (typeof CATEGORIES)[number]; rows: typeof listed }[] = [];
@@ -182,10 +184,33 @@ export function ShoppingModule() {
       </div>
       <div className={`shop shop-show-${pane}`}>
         {/* ---------------------------------------------------- current list */}
-        <section className="view shop-list" aria-label={t('shopping.title')}>
+        <section className="view shop-list" data-density={listDensity} aria-label={t('shopping.title')}>
           <div className="shop-pane-head">
             <h2>{t('shopping.title')}</h2>
             {listCount > 0 && <span className="shop-count">{listCount}</span>}
+            {listCount > 0 && (
+              <button
+                className="btn shop-fs-btn"
+                onClick={() => setFullscreen(true)}
+                aria-label={t('shopping.fullscreen')}
+                title={t('shopping.fullscreen')}
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M3 8V3h5M17 8V3h-5M3 12v5h5M17 12v5h-5" />
+                </svg>
+                <span>{t('shopping.fullscreen')}</span>
+              </button>
+            )}
           </div>
           <div className="shop-scroll">
             {listCount === 0 ? (
@@ -387,7 +412,60 @@ export function ShoppingModule() {
           }}
         />
       )}
+      {fullscreen && listCount > 0 && <FullscreenList groups={listGroups} count={listCount} onClose={() => setFullscreen(false)} />}
     </>
+  );
+}
+
+/** Clean, high-contrast full-screen shopping list designed for taking a quick phone photo. */
+function FullscreenList({
+  groups,
+  count,
+  onClose,
+}: {
+  groups: { cat: (typeof CATEGORIES)[number]; rows: { entry: ListEntry; item: ShopItem }[] }[];
+  count: number;
+  onClose: () => void;
+}) {
+  const { paint } = useStore();
+  const density = count >= 28 ? 'xcompact' : count >= 16 ? 'compact' : 'normal';
+  return (
+    <Modal onClose={onClose} layerClass="modal-backdrop shop-fs-backdrop" label={t('shopping.title')}>
+      <div className={`modal shop-fs density-${density}`}>
+        <div className="shop-fs-head">
+          <h2>{t('shopping.title')}</h2>
+          <span className="shop-count">{count}</span>
+          <span className="board-spacer" />
+          <button className="btn primary" onClick={onClose}>
+            {t('common.close')}
+          </button>
+        </div>
+        <div className="shop-fs-body">
+          <div className="shop-fs-cols">
+            {groups.map(({ cat, rows }) => (
+              <section key={cat.id} className="shop-fs-group" style={{ ['--cat' as string]: paint(cat.color) }}>
+                <header className="shop-fs-group-head">
+                  <Sym emoji={cat.icon} className="shop-head-sym" />
+                  <span>{cat.label}</span>
+                  <span className="shop-group-n">{rows.length}</span>
+                </header>
+                <ul className="shop-fs-items">
+                  {rows.map(({ entry, item }) => (
+                    <li key={item.id} className="shop-fs-item">
+                      <span className="shop-fs-sym">
+                        <Sym emoji={item.emoji} fallback={cat.icon} />
+                      </span>
+                      <span className="shop-fs-name">{item.name}</span>
+                      {entry.qty > 1 && <span className="shop-fs-qty">×{entry.qty}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

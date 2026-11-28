@@ -17,6 +17,17 @@ export interface InstalledApp {
   system?: boolean;
 }
 
+export interface BatteryStatus {
+  /** 0..100 */
+  level: number;
+  charging: boolean;
+  full: boolean;
+  /** estimated minutes until full (Android 9+, while charging) */
+  chargeTimeMin?: number;
+  /** battery temperature in °C */
+  tempC?: number;
+}
+
 interface AppLauncherPlugin {
   getApps(opts?: { icons?: boolean }): Promise<{ apps: InstalledApp[] }>;
   getAppIcon(opts: { packageName: string; activity?: string }): Promise<{ icon: string; size: number }>;
@@ -27,7 +38,9 @@ interface AppLauncherPlugin {
   isDefaultLauncher(): Promise<{ value: boolean }>;
   setKeepAwake(opts: { enabled: boolean }): Promise<void>;
   setSystemBars(opts: { dark: boolean }): Promise<void>;
+  getBattery(): Promise<BatteryStatus>;
   addListener(event: 'appsChanged', fn: () => void): Promise<PluginListenerHandle>;
+  addListener(event: 'batteryChanged', fn: (status: BatteryStatus) => void): Promise<PluginListenerHandle>;
 }
 
 /** native part: android/app/src/main/java/io/github/indigodev/homewally/AppLauncherPlugin.java */
@@ -79,6 +92,22 @@ export function setSystemBars(dark: boolean) {
 export function onAppsChanged(fn: () => void): () => void {
   if (!isNative) return () => {};
   const handle = AppLauncher.addListener('appsChanged', fn);
+  return () => void handle.then((h) => h.remove());
+}
+
+export async function getBattery(): Promise<BatteryStatus | null> {
+  if (!isNative) return null;
+  try {
+    return await AppLauncher.getBattery();
+  } catch {
+    return null;
+  }
+}
+
+/** Called whenever the Android battery level or charging state changes. */
+export function onBatteryChanged(fn: (status: BatteryStatus) => void): () => void {
+  if (!isNative) return () => {};
+  const handle = AppLauncher.addListener('batteryChanged', fn);
   return () => void handle.then((h) => h.remove());
 }
 

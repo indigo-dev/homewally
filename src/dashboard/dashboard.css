@@ -1528,4 +1528,180 @@
     overflow-y: auto;
     min-height: 200px;
   }
+
+  /* ---------------- Akku (nur Android-App) */
+  .dw-battery {
+    --bat-c: #22c55e;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .dw-battery.tone-warn {
+    --bat-c: #f59e0b;
+  }
+  .dw-battery.tone-low {
+    --bat-c: #ef4444;
+  }
+  .dw-bat-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    padding: 4px 14px 12px;
+  }
+  .dw-battery.m .dw-bat-content {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+  }
+  .dw-battery.t .dw-bat-content {
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .dw-bat-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .dw-battery.m .dw-bat-summary {
+    flex: 0 0 auto;
+    min-width: 112px;
+    align-items: flex-start;
+  }
+  .dw-bat-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .dw-bat-shell {
+    position: relative;
+    width: 82px;
+    height: 36px;
+    padding: 3px;
+    border-radius: 10px;
+    border: 2.5px solid color-mix(in srgb, var(--text) 34%, transparent);
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+    overflow: hidden;
+  }
+  .dw-battery.s .dw-bat-shell {
+    width: 76px;
+    height: 34px;
+  }
+  .dw-bat-fill {
+    height: 100%;
+    border-radius: 5.5px;
+    background: linear-gradient(180deg, color-mix(in srgb, #fff 24%, var(--bat-c)), var(--bat-c));
+    transition:
+      width 0.4s ease,
+      background-color 0.3s ease;
+  }
+  .dw-bat-icon.charging .dw-bat-fill {
+    box-shadow: 0 0 12px color-mix(in srgb, var(--bat-c) 55%, transparent);
+  }
+  .dw-bat-cap {
+    width: 4px;
+    height: 14px;
+    border-radius: 0 3px 3px 0;
+    background: color-mix(in srgb, var(--text) 34%, transparent);
+    flex: none;
+  }
+  .dw-bat-bolt {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 18px;
+    height: 18px;
+    fill: #ffffff;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  }
+  .dw-bat-readout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    min-width: 0;
+  }
+  .dw-battery.m .dw-bat-readout {
+    align-items: flex-start;
+  }
+  .dw-bat-pct {
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+    color: var(--bat-c);
+  }
+  .dw-battery.s .dw-bat-pct {
+    font-size: 1.3rem;
+  }
+  .dw-bat-state {
+    font-size: 0.74rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .dw-bat-chart {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .dw-bat-chart svg {
+    width: 100%;
+    flex: 1;
+    min-height: 54px;
+    overflow: visible;
+  }
+  .dw-bat-guide {
+    stroke: color-mix(in srgb, var(--text) 12%, transparent);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    vector-effect: non-scaling-stroke;
+  }
+  .dw-bat-line {
+    fill: none;
+    stroke: var(--bat-c);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .dw-bat-gap {
+    fill: none;
+    stroke: color-mix(in srgb, var(--bat-c) 45%, transparent);
+    stroke-width: 1.5;
+    stroke-dasharray: 3 4;
+    vector-effect: non-scaling-stroke;
+  }
+  .dw-bat-dot {
+    fill: var(--bat-c);
+    stroke: var(--surface);
+    stroke-width: 1.5;
+  }
+  .dw-bat-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .dw-bat-chart-empty {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    padding: 8px;
+    border-radius: 12px;
+    border: 1px dashed var(--line);
+    color: var(--muted);
+    font-size: 0.76rem;
+    text-align: center;
+  }
 }

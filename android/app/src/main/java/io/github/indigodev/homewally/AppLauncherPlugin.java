@@ -14,6 +14,7 @@ import android.graphics.Canvas;
 import android.content.res.Resources;
 import android.graphics.drawable.AdaptiveIconDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.provider.Settings;
 import android.util.Base64;
@@ -46,6 +47,9 @@ public class AppLauncherPlugin extends Plugin {
     private static final int ICON_PX = 128;
     private static final int MAX_ICON_PX = 512;
     private BroadcastReceiver packageReceiver;
+    private BroadcastReceiver batteryReceiver;
+    private int lastBatteryLevel = -1;
+    private Boolean lastBatteryCharging = null;
 
     @Override
     public void load() {
@@ -62,6 +66,27 @@ public class AppLauncherPlugin extends Plugin {
         filter.addAction(Intent.ACTION_PACKAGE_CHANGED);
         filter.addDataScheme("package");
         ContextCompat.registerReceiver(getContext(), packageReceiver, filter, ContextCompat.RECEIVER_EXPORTED);
+
+        // live battery updates for the Android battery dashboard widget
+        batteryReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                JSObject info = readBattery(intent);
+                if (info == null) return;
+                int level = info.optInt("level", -1);
+                boolean charging = info.optBoolean("charging", false);
+                if (level == lastBatteryLevel && lastBatteryCharging != null && lastBatteryCharging == charging) return;
+                lastBatteryLevel = level;
+                lastBatteryCharging = charging;
+                notifyListeners("batteryChanged", info);
+            }
+        };
+        ContextCompat.registerReceiver(
+            getContext(),
+            batteryReceiver,
+            new IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+            ContextCompat.RECEIVER_EXPORTED
+        );
     }
 
     @Override
@@ -73,6 +98,14 @@ public class AppLauncherPlugin extends Plugin {
                 // already unregistered
             }
             packageReceiver = null;
+        }
+        if (batteryReceiver != null) {
+            try {
+                getContext().unregisterReceiver(batteryReceiver);
+            } catch (IllegalArgumentException ignored) {
+                // already unregistered
+            }
+            batteryReceiver = null;
         }
     }
 
@@ -217,6 +250,51 @@ public class AppLauncherPlugin extends Plugin {
             else getActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             call.resolve();
         });
+    }
+
+    /** Current battery level, charging state, optional remaining charge time and temperature. */
+    @PluginMethod
+    public void getBattery(PluginCall call) {
+        Intent intent = getContext().registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        JSObject info = readBattery(intent);
+        if (info == null) {
+            call.reject("Akkustatus nicht verfügbar");
+            return;
+        }
+        call.resolve(info);
+    }
+
+    private JSObject readBattery(Intent intent) {
+        if (intent == null) return null;
+        int rawLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+        int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+        if (rawLevel < 0 || scale <= 0) return null;
+        int pct = Math.max(0, Math.min(100, Math.round((rawLevel * 100f) / scale)));
+        int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+        int plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
+        boolean full = status == BatteryManager.BATTERY_STATUS_FULL || pct >= 100;
+        boolean charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL || plugged != 0;
+
+        JSObject ret = new JSObject();
+        ret.put("level", pct);
+        ret.put("charging", charging);
+        ret.put("full", full);
+
+        int tempTenths = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+        if (tempTenths > 0) ret.put("tempC", Math.round(tempTenths) / 10.0);
+
+        if (charging && !full && Build.VERSION.SDK_INT >= 28) {
+            try {
+                BatteryManager bm = (BatteryManager) getContext().getSystemService(Context.BATTERY_SERVICE);
+                if (bm != null) {
+                    long ms = bm.computeChargeTimeRemaining();
+                    if (ms > 0) ret.put("chargeTimeMin", Math.max(1, Math.round(ms / 60000.0)));
+                }
+            } catch (Exception ignored) {
+                // optional on some devices
+            }
+        }
+        return ret;
     }
 
     /** Matches Android's status & navigation bar icon contrast to the app's light/dark mode. */

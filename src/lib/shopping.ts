@@ -109,6 +109,7 @@ const CATALOG: Record<Exclude<CategoryId, 'other'>, [ItemId, string][]> = {
   ],
   meat: [
     ['salami', '🍖'],
+    ['mortadella', '🍖'],
     ['liverwurst', '🌭'],
     ['teewurst', '🥪'],
     ['ham', '🥓'],

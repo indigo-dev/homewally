@@ -9,7 +9,7 @@ import { isNative } from '../native/launcher';
  */
 
 export type WidgetType =
-  'clock' | 'weather' | 'events' | 'timetable' | 'todos' | 'shopping' | 'photos' | 'holidays' | 'pollen' | 'family' | 'app';
+  'clock' | 'weather' | 'events' | 'timetable' | 'todos' | 'shopping' | 'photos' | 'holidays' | 'pollen' | 'family' | 'app' | 'battery';
 
 /** Klein 1×1, Mittel 2×1, Hoch 1×2, Groß 2×2, Breit 3×2 */
 export type WidgetSize = 's' | 'm' | 't' | 'l' | 'xl';
@@ -51,8 +51,13 @@ const DEFS: Omit<WidgetDef, 'title' | 'description'>[] = [
   { type: 'shopping', icon: '🛒', sizes: ['s', 'm', 't', 'l'], module: 'shopping' },
   { type: 'photos', icon: '🖼️', sizes: ['s', 'm', 't', 'l', 'xl'], module: 'frame' },
   { type: 'holidays', icon: '🏖️', sizes: ['s', 'm'] },
-  // shortcut to another Android app (only in the Android app): one tile per app
-  ...(isNative ? [{ type: 'app' as const, icon: '📱', sizes: ['s' as const] }] : []),
+  // Android-only widgets: app shortcut tiles and live tablet battery monitor
+  ...(isNative
+    ? [
+        { type: 'battery' as const, icon: '🔋', sizes: ['s' as const, 'm' as const, 't' as const] },
+        { type: 'app' as const, icon: '📱', sizes: ['s' as const] },
+      ]
+    : []),
 ];
 
 /** the widgets with title and description in the active language */
