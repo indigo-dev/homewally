@@ -34,8 +34,13 @@ import { GAP, gridGeometry } from './geometry';
 import { arrange, fitsAt, freeCells, rowsOf, type Cell } from './pack';
 
 const LONG_PRESS_MS = 550;
+/** short hold in edit mode on touch so swiping still scrolls a full dashboard */
+const EDIT_LONG_PRESS_MS = 280;
 /** how long a dragged widget rests over a place before it moves there */
 const DWELL_MS = 220;
+/** top/bottom edge band (px) that auto-scrolls the grid while dragging a widget */
+const EDGE_SCROLL_PX = 64;
+const EDGE_SCROLL_MAX = 12;
 
 interface Props {
   reloadKey: number;
@@ -133,6 +138,8 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
     pointerId: number;
     x: number;
     y: number;
+    curX: number;
+    curY: number;
     armed: boolean;
     timer?: number;
   } | null>(null);
@@ -141,20 +148,23 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
   const lastTarget = useRef<string | null>(null);
   /** where the finger holds the dragged widget (set once the drag has started) */
   const dragOff = useRef<{ x: number; y: number } | null>(null);
+  const dragPos = useRef<{ x: number; y: number } | null>(null);
   const dragId = useRef<string | null>(null);
   /** timer until the dragged widget takes the place it rests over */
   const dwell = useRef(0);
+  const scrollRaf = useRef(0);
+  const beginDragRef = useRef<(id: string, originX: number, originY: number, curX: number, curY: number) => boolean>(() => false);
 
-  // while armed/dragging, iOS must not scroll the page
+  // while armed/dragging, touch browsers (Android WebView, iOS) must not scroll the page
   useEffect(() => {
     const el = gridRef.current;
     if (!el) return;
     const block = (e: TouchEvent) => {
-      if (press.current?.armed || drag) e.preventDefault();
+      if (press.current?.armed || dragId.current) e.preventDefault();
     };
     el.addEventListener('touchmove', block, { passive: false });
     return () => el.removeEventListener('touchmove', block);
-  }, [gridRef, drag]);
+  }, [gridRef]);
 
   const endPress = () => {
     if (press.current?.timer) window.clearTimeout(press.current.timer);
@@ -162,46 +172,11 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
   };
 
   useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      const p = press.current;
-      if (!p || e.pointerId !== p.pointerId) return;
-      const dist = Math.hypot(e.clientX - p.x, e.clientY - p.y);
-      if (!p.armed) {
-        if (dist > 10) endPress(); // a scroll, not a long press
-        return;
+    const stopAutoScroll = () => {
+      if (scrollRaf.current) {
+        cancelAnimationFrame(scrollRaf.current);
+        scrollRaf.current = 0;
       }
-      if (!dragOff.current) {
-        if (dist < 6) return;
-        const el = document.querySelector<HTMLElement>(`[data-wid="${p.id}"]`);
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        suppressClick.current = true;
-        lastTarget.current = null;
-        dragOff.current = { x: p.x - r.left, y: p.y - r.top };
-        dragId.current = p.id;
-        setDrag({ id: p.id, x: e.clientX, y: e.clientY, offX: p.x - r.left, offY: p.y - r.top, w: r.width, h: r.height });
-      } else setDrag((d) => d && { ...d, x: e.clientX, y: e.clientY });
-      // the cell under the dragged widget's top-left corner: free → it moves there,
-      // a widget of the same size → the two swap places
-      const g = geo.current;
-      const grid = gridRef.current;
-      const idx = g.layout.findIndex((w) => w.id === p.id);
-      if (!grid || idx < 0) return;
-      const box = grid.getBoundingClientRect();
-      const pad = parseFloat(getComputedStyle(grid).paddingLeft) || 0;
-      const off = dragOff.current;
-      const gx = e.clientX - off.x - box.left - pad;
-      const gy = e.clientY - off.y - box.top - pad + grid.scrollTop;
-      const cell: Cell = {
-        x: Math.max(0, Math.min(g.cols - g.boxes[idx].w, Math.round(gx / (g.cellW + GAP)))),
-        y: Math.max(0, Math.round(gy / (g.rowH + GAP))),
-      };
-      const key = `${cell.x},${cell.y}`;
-      if (key === lastTarget.current) return;
-      lastTarget.current = key;
-      // only when the widget rests over a place for a moment – passing over others must not reshuffle them
-      window.clearTimeout(dwell.current);
-      dwell.current = window.setTimeout(() => place(p.id, cell), DWELL_MS);
     };
     /** moves the dragged widget to `cell` if it is free, or swaps it with a widget of the same size there */
     const place = (id: string, cell: Cell) => {
@@ -220,9 +195,95 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
       );
       if (other >= 0) setPositions(g.cols, { ...fixed, [id]: cell, [g.layout[other].id]: cur });
     };
+    // the cell under the dragged widget's top-left corner: free → it moves there,
+    // a widget of the same size → the two swap places
+    const updateTarget = (id: string, clientX: number, clientY: number) => {
+      const g = geo.current;
+      const grid = gridRef.current;
+      const off = dragOff.current;
+      const idx = g.layout.findIndex((w) => w.id === id);
+      if (!grid || !off || idx < 0) return;
+      const box = grid.getBoundingClientRect();
+      const pad = parseFloat(getComputedStyle(grid).paddingLeft) || 0;
+      const gx = clientX - off.x - box.left - pad;
+      const gy = clientY - off.y - box.top - pad + grid.scrollTop;
+      const cell: Cell = {
+        x: Math.max(0, Math.min(g.cols - g.boxes[idx].w, Math.round(gx / (g.cellW + GAP)))),
+        y: Math.max(0, Math.round(gy / (g.rowH + GAP))),
+      };
+      const key = `${cell.x},${cell.y}`;
+      if (key === lastTarget.current) return;
+      lastTarget.current = key;
+      // only when the widget rests over a place for a moment – passing over others must not reshuffle them
+      window.clearTimeout(dwell.current);
+      dwell.current = window.setTimeout(() => place(id, cell), DWELL_MS);
+    };
+    const startAutoScroll = () => {
+      if (scrollRaf.current) return;
+      const step = () => {
+        const id = dragId.current;
+        const pos = dragPos.current;
+        const grid = gridRef.current;
+        if (!id || !pos || !grid) {
+          scrollRaf.current = 0;
+          return;
+        }
+        const box = grid.getBoundingClientRect();
+        let dy = 0;
+        if (pos.y < box.top + EDGE_SCROLL_PX) {
+          const ratio = Math.min(1, (box.top + EDGE_SCROLL_PX - pos.y) / EDGE_SCROLL_PX);
+          dy = -Math.ceil(ratio * EDGE_SCROLL_MAX);
+        } else if (pos.y > box.bottom - EDGE_SCROLL_PX) {
+          const ratio = Math.min(1, (pos.y - (box.bottom - EDGE_SCROLL_PX)) / EDGE_SCROLL_PX);
+          dy = Math.ceil(ratio * EDGE_SCROLL_MAX);
+        }
+        if (dy !== 0) {
+          const before = grid.scrollTop;
+          grid.scrollTop += dy;
+          if (grid.scrollTop !== before) updateTarget(id, pos.x, pos.y);
+        }
+        scrollRaf.current = requestAnimationFrame(step);
+      };
+      scrollRaf.current = requestAnimationFrame(step);
+    };
+    const beginDrag = (id: string, originX: number, originY: number, curX: number, curY: number) => {
+      const el = document.querySelector<HTMLElement>(`[data-wid="${id}"]`);
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      suppressClick.current = true;
+      lastTarget.current = null;
+      dragOff.current = { x: originX - r.left, y: originY - r.top };
+      dragPos.current = { x: curX, y: curY };
+      dragId.current = id;
+      setDrag({ id, x: curX, y: curY, offX: originX - r.left, offY: originY - r.top, w: r.width, h: r.height });
+      startAutoScroll();
+      return true;
+    };
+    beginDragRef.current = beginDrag;
+
+    const onMove = (e: PointerEvent) => {
+      const p = press.current;
+      if (!p || e.pointerId !== p.pointerId) return;
+      p.curX = e.clientX;
+      p.curY = e.clientY;
+      const dist = Math.hypot(e.clientX - p.x, e.clientY - p.y);
+      if (!p.armed) {
+        if (dist > 10) endPress(); // a scroll, not a long press
+        return;
+      }
+      if (!dragOff.current) {
+        if (dist < 6) return;
+        if (!beginDrag(p.id, p.x, p.y, e.clientX, e.clientY)) return;
+      } else {
+        dragPos.current = { x: e.clientX, y: e.clientY };
+        setDrag((d) => d && { ...d, x: e.clientX, y: e.clientY });
+      }
+      updateTarget(p.id, e.clientX, e.clientY);
+    };
     const onUp = (e: PointerEvent) => {
       if (press.current && e.pointerId !== press.current.pointerId) return;
       endPress();
+      stopAutoScroll();
       // let go over a place: it counts at once
       if (dwell.current && dragOff.current && lastTarget.current) {
         window.clearTimeout(dwell.current);
@@ -231,12 +292,17 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
       }
       dwell.current = 0;
       dragOff.current = null;
+      dragPos.current = null;
+      dragId.current = null;
       setDrag(null);
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
     return () => {
+      stopAutoScroll();
+      window.clearTimeout(dwell.current);
+      endPress();
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
@@ -246,11 +312,30 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
   const onPointerDown = (w: WidgetInstance) => (e: RPointerEvent) => {
     if (e.button !== 0 || (e.target as HTMLElement).closest('.dw-edit-btn')) return;
     suppressClick.current = false;
-    const p = { id: w.id, pointerId: e.pointerId, x: e.clientX, y: e.clientY, armed: editing, timer: undefined as number | undefined };
-    if (!editing) {
+    // mouse drags immediately (wheel/scrollbar handles scrolling); touch/pen uses a short hold so swiping scrolls
+    const immediate = editing && e.pointerType === 'mouse';
+    const p = {
+      id: w.id,
+      pointerId: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      curX: e.clientX,
+      curY: e.clientY,
+      armed: immediate,
+      timer: undefined as number | undefined,
+    };
+    if (editing && !immediate) {
+      p.timer = window.setTimeout(() => {
+        if (press.current !== p) return;
+        p.armed = true;
+        navigator.vibrate?.(12);
+        beginDragRef.current(p.id, p.x, p.y, p.curX, p.curY);
+      }, EDIT_LONG_PRESS_MS);
+    } else if (!editing) {
       // interactive parts (checkboxes, items) keep their own tap
       if ((e.target as HTMLElement).closest('button')) return;
       p.timer = window.setTimeout(() => {
+        if (press.current !== p) return;
         p.armed = true;
         suppressClick.current = true;
         navigator.vibrate?.(10);
@@ -381,7 +466,6 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
                     } as CSSProperties
                   }
                   onPointerDown={onPointerDown(w)}
-                  onPointerUp={endPress}
                   onClick={onClick(w)}
                   onContextMenu={(e) => e.preventDefault()}
                 >

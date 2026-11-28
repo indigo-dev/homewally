@@ -75,12 +75,23 @@
   /* the wiggle angle (--wig) is set per widget so that every widget's corners move by about one pixel –
    a fixed angle makes big widgets swing far more than small ones */
   .dash.editing .dw {
-    touch-action: none;
+    /* keep vertical scrolling working on touch even when the whole viewport is filled with widgets;
+       dragging starts after a short press-and-hold, at which point .dash.dragging locks touch-action */
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
     cursor: grab;
     will-change: transform;
     backface-visibility: hidden;
     animation: dw-wiggle 0.34s ease-in-out infinite alternate;
     animation-delay: calc(var(--i) * -0.11s);
+  }
+  .dash.dragging,
+  .dash.dragging .dw {
+    touch-action: none;
+  }
+  .dash.dragging .dw {
+    cursor: grabbing;
   }
   .dash.editing .dw-inner {
     pointer-events: none;
@@ -128,9 +139,14 @@
     position: fixed;
     z-index: 50;
     pointer-events: none;
+    background: var(--sheet, var(--surface));
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
     transform: scale(1.04);
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-    opacity: 0.95;
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent),
+      0 18px 50px rgba(0, 0, 0, 0.28);
+    opacity: 0.96;
   }
   .dw-edit-btn {
     position: absolute;

@@ -155,7 +155,7 @@ export const en: Messages = {
     ok: 'OK',
   },
   dashboard: {
-    hint: 'Drag to move · resize with the button at the bottom right',
+    hint: 'Press and hold briefly to move · resize with the button at the bottom right',
     confirmReset: 'Restore the default layout?',
     addWidget: '＋ Widget',
     empty: 'The dashboard is empty.',

@@ -156,7 +156,7 @@ export const de = {
     ok: 'OK',
   },
   dashboard: {
-    hint: 'Ziehen zum Verschieben · Größe über den Knopf unten rechts',
+    hint: 'Kurz halten zum Verschieben · Größe über den Knopf unten rechts',
     confirmReset: 'Standard-Anordnung wiederherstellen?',
     addWidget: '＋ Widget',
     empty: 'Das Dashboard ist leer.',
