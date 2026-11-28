@@ -6,11 +6,12 @@ import { DEFAULT_PERIODS } from './school';
 async function loadModules() {
   vi.resetModules();
   vi.stubGlobal('localStorage', fakeStorage());
-  const [backup, todosMod, localMod, shoppingMod, weatherMod, dashMod, frameMod, gamesMod, soundsMod, navMod, voiceMod] = await Promise.all(
-    [
+  const [backup, todosMod, localMod, bdayMod, shoppingMod, weatherMod, dashMod, frameMod, gamesMod, soundsMod, navMod, voiceMod] =
+    await Promise.all([
       import('./backup'),
       import('./todos'),
       import('./localEvents'),
+      import('./birthdays'),
       import('./shopping'),
       import('./weather'),
       import('./dashboard'),
@@ -19,9 +20,8 @@ async function loadModules() {
       import('./sounds'),
       import('../components/ModuleNav'),
       import('../voice/settings'),
-    ],
-  );
-  return { backup, todosMod, localMod, shoppingMod, weatherMod, dashMod, frameMod, gamesMod, soundsMod, navMod, voiceMod };
+    ]);
+  return { backup, todosMod, localMod, bdayMod, shoppingMod, weatherMod, dashMod, frameMod, gamesMod, soundsMod, navMod, voiceMod };
 }
 
 describe('full backup export & import', () => {
@@ -70,6 +70,7 @@ describe('full backup export & import', () => {
         createdAt: 1000,
       },
     ]);
+    m.bdayMod.birthdays.set([{ id: 'bd1', name: 'Oma Hilde', month: 5, day: 14, year: 1956, createdAt: 1000 }]);
     m.shoppingMod.shopping.set({
       list: [{ itemId: 'milk', qty: 2, addedAt: 1000 }],
       custom: [{ id: 'custom-1', name: 'Hafermilch', cat: 'dairy', emoji: '🥛', custom: true }],
@@ -111,6 +112,8 @@ describe('full backup export & import', () => {
     expect(target.todosMod.todos.get()[0].text).toBe('Milch kaufen');
     expect(target.localMod.localEvents.get()).toHaveLength(1);
     expect(target.localMod.localEvents.get()[0]).toMatchObject({ title: 'Fußballtraining', repeat: 'weekly', startTime: '15:00' });
+    expect(target.bdayMod.birthdays.get()).toHaveLength(1);
+    expect(target.bdayMod.birthdays.get()[0]).toMatchObject({ name: 'Oma Hilde', month: 5, day: 14, year: 1956 });
     expect(target.shoppingMod.shopping.get().list[0].qty).toBe(2);
     expect(target.shoppingMod.shopping.get().custom[0].name).toBe('Hafermilch');
     expect(target.weatherMod.weatherSettings.get().places[0].name).toBe('Berlin');

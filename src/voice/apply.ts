@@ -1,8 +1,9 @@
 import { CATEGORIES, norm, type CategoryId, type ListEntry, type ShopItem } from '../lib/shopping';
 import { newTodo, type Todo } from '../lib/todos';
 import { newLocalEvent, type LocalEvent } from '../lib/localEvents';
+import { newBirthday, type Birthday } from '../lib/birthdays';
 import type { Member } from '../types';
-import { EVERYONE, type CheckTodoRequest, type Command, type DeleteEventRequest } from './command';
+import { EVERYONE, type CheckTodoRequest, type Command, type DeleteBirthdayRequest, type DeleteEventRequest } from './command';
 import { t, locale } from '../i18n';
 import { fmt } from '../lib/dates';
 
@@ -28,6 +29,10 @@ export interface ApplyDeps {
   localEvents?: LocalEvent[];
   upsertLocalEvent?: (e: LocalEvent) => void;
   removeLocalEvent?: (id: string) => void;
+  birthdaysCalendarEnabled?: boolean;
+  birthdays?: Birthday[];
+  upsertBirthday?: (b: Birthday) => void;
+  removeBirthday?: (id: string) => void;
 }
 
 export interface Line {
@@ -139,7 +144,23 @@ export function findLocalEvent(events: LocalEvent[], req: DeleteEventRequest, me
 }
 
 type Changes = Pick<Command, 'addShopping' | 'checkShopping' | 'addTodos' | 'checkTodos'> &
-  Partial<Pick<Command, 'addEvents' | 'deleteEvents'>>;
+  Partial<Pick<Command, 'addEvents' | 'deleteEvents' | 'addBirthdays' | 'deleteBirthdays'>>;
+
+function findBirthday(list: Birthday[], req: DeleteBirthdayRequest): Birthday | undefined {
+  const n = norm(req.name);
+  const exact = list.filter((b) => norm(b.name) === n);
+  if (exact.length === 1) return exact[0];
+  const want = words(req.name);
+  const scored = list
+    .map((b) => {
+      const have = words(b.name);
+      return { b, hits: want.filter((w) => have.some((h) => h.startsWith(w) || w.startsWith(h))).length };
+    })
+    .filter((s) => s.hits > 0)
+    .sort((a, b) => b.hits - a.hits);
+  if (!scored.length || (scored[1] && scored[1].hits === scored[0].hits)) return undefined;
+  return scored[0].b;
+}
 
 export function applyCommand(cmd: Changes, deps: ApplyDeps): Applied {
   const lines: Line[] = [];
@@ -282,6 +303,56 @@ export function applyCommand(cmd: Changes, deps: ApplyDeps): Applied {
     undos.push(() => upsert(ev));
     lines.push({ icon: '🗑️', text: t('voice.eventDeletedLine', { title: ev.title }) });
     speech.push(t('voice.eventDeletedSpeech', { title: ev.title }));
+  }
+
+  /* birthdays calendar: add birthdays (all-day, yearly, unassigned) */
+  const bdaysEnabled = deps.birthdaysCalendarEnabled !== false;
+  let bdayList = deps.birthdays ?? [];
+  for (const req of cmd.addBirthdays ?? []) {
+    if (!bdaysEnabled || !deps.upsertBirthday || !deps.removeBirthday) {
+      lines.push({ icon: '⚠️', text: t('voice.birthdaysOff') });
+      speech.push(t('voice.birthdaysOff'));
+      continue;
+    }
+    const maxDay = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][req.month - 1] ?? 31;
+    const b: Birthday = {
+      ...newBirthday(),
+      name: req.name,
+      month: req.month,
+      day: Math.min(req.day, maxDay),
+      year: req.year,
+    };
+    deps.upsertBirthday(b);
+    bdayList = [...bdayList, b];
+    const remove = deps.removeBirthday;
+    undos.push(() => remove(b.id));
+    const dateLabel = fmt(
+      new Date(b.year ?? 2024, b.month - 1, b.day),
+      b.year ? { day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'long' },
+    );
+    lines.push({ icon: '🎂', text: t('voice.birthdayAddedLine', { name: b.name, date: dateLabel }) });
+    speech.push(t('voice.birthdayAddedSpeech', { name: b.name, date: dateLabel }));
+  }
+
+  /* birthdays calendar: delete birthdays */
+  for (const req of cmd.deleteBirthdays ?? []) {
+    if (!bdaysEnabled || !deps.upsertBirthday || !deps.removeBirthday) {
+      lines.push({ icon: '⚠️', text: t('voice.birthdaysOff') });
+      speech.push(t('voice.birthdaysOff'));
+      continue;
+    }
+    const found = findBirthday(bdayList, req);
+    if (!found) {
+      lines.push({ icon: '🤷', text: t('voice.birthdayNotFound', { name: req.name }) });
+      speech.push(t('voice.birthdayNotFound', { name: req.name }));
+      continue;
+    }
+    deps.removeBirthday(found.id);
+    bdayList = bdayList.filter((x) => x.id !== found.id);
+    const upsert = deps.upsertBirthday;
+    undos.push(() => upsert(found));
+    lines.push({ icon: '🗑️', text: t('voice.birthdayDeletedLine', { name: found.name }) });
+    speech.push(t('voice.birthdayDeletedSpeech', { name: found.name }));
   }
 
   return {

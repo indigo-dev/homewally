@@ -21,12 +21,14 @@ export function EventEditor({
   onSave,
   onDelete,
   onClose,
+  onSwitchToBirthday,
 }: {
   initial: LocalEvent;
   isNew: boolean;
   onSave: (ev: LocalEvent) => void;
   onDelete?: () => void;
   onClose: () => void;
+  onSwitchToBirthday?: () => void;
 }) {
   const { members } = useStore();
   const [title, setTitle] = useState(initial.title);
@@ -99,6 +101,17 @@ export function EventEditor({
             ✕
           </button>
         </div>
+
+        {isNew && onSwitchToBirthday && (
+          <div className="segmented event-kind-switch" role="tablist">
+            <button type="button" role="tab" aria-selected className="active">
+              {t('calendar.local.kindEvent')}
+            </button>
+            <button type="button" role="tab" aria-selected={false} onClick={onSwitchToBirthday}>
+              🎂 {t('calendar.birthdays.kindBirthday')}
+            </button>
+          </div>
+        )}
 
         <div className="event-editor-body">
           <label className="event-field">

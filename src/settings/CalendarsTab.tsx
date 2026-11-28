@@ -4,7 +4,10 @@ import { useStore } from '../store';
 import { linkHelp, newCalendar } from '../lib/config';
 import { checkProxy, normalizeIcsUrl, proxyOf, testCalendarLink } from '../lib/events';
 import { useLocalEvents } from '../lib/localEvents';
+import { newBirthday, useBirthdays, type Birthday } from '../lib/birthdays';
+import { playSound } from '../lib/sounds';
 import { Avatar } from '../components/Avatar';
+import { BirthdayEditor } from '../components/BirthdayEditor';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Group, Row, Switch } from './controls';
 import { isNative } from '../native/launcher';
@@ -15,10 +18,13 @@ type TestState = { busy: true } | { busy: false; ok: true; text: string } | { bu
 export function CalendarsTab() {
   const { calendars, settings, updateSettings } = useStore();
   const { events: locals, clear: clearLocals } = useLocalEvents();
+  const { birthdays: bdays, upsert: upsertBday, clear: clearBdays } = useBirthdays();
   const [proxy, setProxy] = useState(settings.proxyUrl);
   const [proxyKey, setProxyKey] = useState(settings.proxyKey);
   const [proxyTest, setProxyTest] = useState<TestState | null>(null);
   const [askClearLocal, setAskClearLocal] = useState(false);
+  const [askClearBdays, setAskClearBdays] = useState(false);
+  const [addingBday, setAddingBday] = useState<Birthday | null>(null);
 
   const saveProxy = async () => {
     const url = proxy.trim().replace(/\/+$/, '');
@@ -63,6 +69,56 @@ export function CalendarsTab() {
         >
           <p>{t('settings.calendars.localClearBody', { n: locals.length })}</p>
         </ConfirmDialog>
+      )}
+
+      <Group title={t('settings.calendars.birthdaysTitle')} note={t('settings.calendars.birthdaysNote')}>
+        <Row label={t('settings.calendars.birthdaysEnable')} hint={t('settings.calendars.birthdaysEnableHint')}>
+          <Switch
+            checked={settings.birthdaysCalendarEnabled}
+            onChange={(v) => updateSettings({ birthdaysCalendarEnabled: v })}
+            label={t('settings.calendars.birthdaysEnable')}
+          />
+        </Row>
+        <Row
+          label={t('settings.calendars.birthdaysStored')}
+          hint={bdays.length > 0 ? t('settings.calendars.birthdaysCount', { n: bdays.length }) : t('settings.calendars.birthdaysEmpty')}
+        >
+          <div className="row-actions">
+            <button className="btn" onClick={() => setAddingBday(newBirthday())}>
+              {t('calendar.birthdays.addBtn')}
+            </button>
+            <button className="btn danger" disabled={bdays.length === 0} onClick={() => setAskClearBdays(true)}>
+              {t('settings.calendars.birthdaysClear')}
+            </button>
+          </div>
+        </Row>
+      </Group>
+
+      {askClearBdays && (
+        <ConfirmDialog
+          title={t('settings.calendars.birthdaysClearTitle')}
+          confirmLabel={t('settings.calendars.birthdaysClearConfirm')}
+          onConfirm={() => {
+            clearBdays();
+            setAskClearBdays(false);
+          }}
+          onClose={() => setAskClearBdays(false)}
+        >
+          <p>{t('settings.calendars.birthdaysClearBody', { n: bdays.length })}</p>
+        </ConfirmDialog>
+      )}
+
+      {addingBday && (
+        <BirthdayEditor
+          initial={addingBday}
+          isNew
+          onSave={(b) => {
+            upsertBday(b);
+            playSound('eventSaved');
+            setAddingBday(null);
+          }}
+          onClose={() => setAddingBday(null)}
+        />
       )}
 
       {isNative ? (

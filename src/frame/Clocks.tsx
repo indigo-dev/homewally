@@ -176,7 +176,7 @@ export function FrameEvents() {
 
   const colorOf = (e: CalEvent) => members.find((m) => e.memberIds.includes(m.id))?.color;
   const tomorrow = addDays(today, 1);
-  const visible = events.filter((e) => e.memberIds.some((id) => members.some((m) => m.id === id)));
+  const visible = events.filter((e) => Boolean(e.birthdayId) || e.memberIds.some((id) => members.some((m) => m.id === id)));
   const groups: [string, CalEvent[]][] = [
     [t('common.today'), visible.filter((e) => e.end > now && e.start < tomorrow)],
     [t('common.tomorrow'), visible.filter((e) => e.start >= tomorrow && e.start < addDays(tomorrow, 1))],

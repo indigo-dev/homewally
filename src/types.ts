@@ -92,6 +92,8 @@ export interface Settings {
   schoolEnabled: boolean;
   /** local family calendar (stored only on this device, not synced) */
   localCalendarEnabled: boolean;
+  /** local birthdays calendar (all-day yearly events, unassigned, stored only on this device) */
+  birthdaysCalendarEnabled: boolean;
 }
 
 export type UiStyle = 'wally' | 'classic' | 'clear' | 'flow' | 'aurora' | 'nodes' | 'minimal';
@@ -118,6 +120,10 @@ export interface CalEvent {
   calendarIds?: string[];
   /** id of the LocalEvent when this event comes from the local family calendar */
   localId?: string;
+  /** id of the Birthday when this event comes from the local birthdays calendar */
+  birthdayId?: string;
+  /** turning age in the occurrence's year, when the birth year is stored */
+  birthdayAge?: number;
   memberIds: string[];
 }
 

@@ -12,9 +12,14 @@ function EventRow({ e, now, byId }: { e: CalEvent; now: Date; byId: Map<string, 
   const running = !e.allDay && e.start <= now && e.end > now;
   return (
     <div className={`dw-event ${running ? 'running' : ''}`}>
-      <span className="dw-event-bar" style={{ background: gradient(ms) }} />
+      <span className="dw-event-bar" style={{ background: e.birthdayId ? 'var(--bday, #ec4899)' : gradient(ms) }} />
       <span className="dw-event-time">{e.allDay ? t('common.allDay') : running ? t('dashboard.now') : hhmm(e.start)}</span>
       <span className="dw-event-title">
+        {e.birthdayId && (
+          <span className="bday-mark" aria-hidden>
+            🎂
+          </span>
+        )}
         {e.localId && <LocalMark title={t('calendar.local.badge')} />}
         {e.title}
       </span>

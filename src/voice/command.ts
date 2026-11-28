@@ -65,6 +65,22 @@ export interface DeleteEventRequest {
   members: string[];
 }
 
+/** "Trag Omas Geburtstag am 14. Mai 1956 ein" */
+export interface AddBirthdayRequest {
+  name: string;
+  /** 1..12 */
+  month: number;
+  /** 1..31 */
+  day: number;
+  /** optional 4-digit birth year */
+  year?: number;
+}
+
+/** "Lösch den Geburtstag von Paul" */
+export interface DeleteBirthdayRequest {
+  name: string;
+}
+
 export interface WeatherRequest {
   /** YYYY-MM-DD */
   date: string;
@@ -114,6 +130,8 @@ export interface Command {
   checkTodos: CheckTodoRequest[];
   addEvents: AddEventRequest[];
   deleteEvents: DeleteEventRequest[];
+  addBirthdays: AddBirthdayRequest[];
+  deleteBirthdays: DeleteBirthdayRequest[];
   askWeather: WeatherRequest[];
   askEvents: EventsRequest[];
   askShopping: boolean;
@@ -136,6 +154,10 @@ export interface VoiceContext {
   localEvents?: string[];
   /** whether the local family calendar is enabled */
   localCalendarEnabled?: boolean;
+  /** stored birthdays (to delete one by name) */
+  birthdays?: string[];
+  /** whether the birthdays calendar is enabled */
+  birthdaysCalendarEnabled?: boolean;
 }
 
 const CAT_IDS = CATEGORIES.map((c) => c.id);
@@ -198,6 +220,27 @@ export const COMMAND_SCHEMA = {
         required: ['title'],
       },
     },
+    addBirthdays: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          name: { type: 'STRING' },
+          day: { type: 'INTEGER' },
+          month: { type: 'INTEGER' },
+          year: { type: 'INTEGER' },
+        },
+        required: ['name', 'day', 'month'],
+      },
+    },
+    deleteBirthdays: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { name: { type: 'STRING' } },
+        required: ['name'],
+      },
+    },
     askWeather: {
       type: 'ARRAY',
       items: { type: 'OBJECT', properties: { date: DATE, place: { type: 'STRING' } }, required: ['date'] },
@@ -252,9 +295,10 @@ function germanPrompt(ctx: VoiceContext): string {
     `Artikel im Vorrat der Einkaufsliste: ${list(ctx.pantry, 'keine')}.`,
     `Offene To-dos: ${quoted(ctx.todos ?? [], 'keine')}.`,
     `Lokale Termine: ${quoted(ctx.localEvents ?? [], 'keine')}.`,
+    `Geburtstage: ${quoted(ctx.birthdays ?? [], 'keine')}.`,
     '',
     'Es gibt drei Arten von Bitten – halte sie streng auseinander:',
-    '1. ÄNDERN (Einkaufsliste, To-dos, lokaler Familienkalender)',
+    '1. ÄNDERN (Einkaufsliste, To-dos, lokaler Familienkalender, Geburtstagskalender)',
     '2. FRAGEN ("was steht …", "welche …", "wie wird …", "lies … vor", "was hat …"): Antwort wird vorgelesen, nichts geöffnet.',
     '3. ZEIGEN ("zeig …", "öffne …", "geh in …", "wechsle zu …"): nur die Anzeige wechseln, nichts vorlesen.',
     'Nur wenn ausdrücklich beides verlangt wird ("zeig mir die Einkaufsliste und lies sie vor"), FRAGEN und ZEIGEN füllen.',
@@ -276,6 +320,9 @@ function germanPrompt(ctx: VoiceContext): string {
     '  allDay true ohne Uhrzeit (endDate bei mehrtägigen Terminen); mit Uhrzeit allDay false, startTime/endTime als HH:MM.',
     '  repeat: none (Standard), weekly, monthly oder yearly.',
     '- deleteEvents: lokale Termine löschen ("lösch den Termin Fußball", "sag Zahnarzt am Freitag ab") – title wie bei den lokalen Terminen.',
+    '- addBirthdays: Geburtstage in den eigenen Geburtstagskalender eintragen ("Oma Hilde hat am 14. Mai Geburtstag", "trag Pauls Geburtstag am 3.10.1988 ein").',
+    '  Immer ganztägig und keiner Familienperson zugeordnet – NICHT addEvents verwenden! name = Name der Person, day (1–31), month (1–12), optional year (4-stellig).',
+    '- deleteBirthdays: Geburtstag aus dem Geburtstagskalender löschen ("lösch den Geburtstag von Paul") – name wie bei den Geburtstagen.',
     '- askWeather: Fragen zum Wetter, ein Eintrag pro Tag. place nur, wenn ein Ort genannt wird.',
     '- askEvents: Fragen zu Terminen ("was steht morgen an?"). Zeiträume als from/to, z. B. "diese Woche" = heute bis Sonntag.',
     '  members nur, wenn nach bestimmten Personen gefragt wird, sonst leer (= ganze Familie).',
@@ -306,9 +353,10 @@ function englishPrompt(ctx: VoiceContext): string {
     `Items in the shopping list pantry: ${list(ctx.pantry, 'none')}.`,
     `Open to-dos: ${quoted(ctx.todos ?? [], 'none')}.`,
     `Local events: ${quoted(ctx.localEvents ?? [], 'none')}.`,
+    `Birthdays: ${quoted(ctx.birthdays ?? [], 'none')}.`,
     '',
     'There are three kinds of request – keep them strictly apart:',
-    '1. CHANGE (shopping list, to-dos, local family calendar)',
+    '1. CHANGE (shopping list, to-dos, local family calendar, birthdays calendar)',
     '2. ASK ("what\'s on …", "which …", "how will …", "read … out", "what does … have"): the answer is read aloud, nothing is opened.',
     '3. SHOW ("show …", "open …", "go to …", "switch to …"): only change the screen, read nothing aloud.',
     'Fill both ASK and SHOW only if both are asked for explicitly ("show me the shopping list and read it out").',
@@ -330,6 +378,9 @@ function englishPrompt(ctx: VoiceContext): string {
     '  allDay true without a time (endDate for multi-day events); with a time allDay false, startTime/endTime as HH:MM.',
     '  repeat: none (default), weekly, monthly or yearly.',
     '- deleteEvents: remove local events ("delete the football event", "cancel dentist on Friday") – title close to the local events.',
+    '- addBirthdays: add birthdays to the dedicated birthdays calendar ("Grandma\'s birthday is May 14", "add Paul\'s birthday on 3 October 1988").',
+    "  Always all-day and not assigned to any family member – do NOT use addEvents! name = person's name, day (1–31), month (1–12), optional 4-digit year.",
+    '- deleteBirthdays: remove a birthday ("delete Paul\'s birthday") – name close to the stored birthdays.',
     '- askWeather: questions about the weather, one entry per day. place only if a place is mentioned.',
     '- askEvents: questions about events ("what\'s on tomorrow?"). Periods as from/to, e.g. "this week" = today to Sunday.',
     '  members only if the question is about certain people, otherwise empty (= whole family).',
@@ -415,6 +466,17 @@ export function parseCommand(raw: unknown): Command {
   const deleteEvents = objs(r.deleteEvents)
     .map((e): DeleteEventRequest => ({ title: str(e.title), date: ymdOr(e.date), members: strs(e.members) }))
     .filter((e) => e.title);
+  const addBirthdays = objs(r.addBirthdays)
+    .map((b): AddBirthdayRequest => {
+      const month = typeof b.month === 'number' && Number.isInteger(b.month) ? b.month : 0;
+      const day = typeof b.day === 'number' && Number.isInteger(b.day) ? b.day : 0;
+      const year = typeof b.year === 'number' && Number.isInteger(b.year) && b.year >= 1900 && b.year <= 2100 ? b.year : undefined;
+      return { name: str(b.name), month, day, year };
+    })
+    .filter((b) => b.name && b.month >= 1 && b.month <= 12 && b.day >= 1 && b.day <= 31);
+  const deleteBirthdays = objs(r.deleteBirthdays)
+    .map((b): DeleteBirthdayRequest => ({ name: str(b.name) }))
+    .filter((b) => b.name);
   const askWeather = objs(r.askWeather)
     .map((w): WeatherRequest => ({ date: str(w.date), place: str(w.place) || undefined }))
     .filter((w) => isYmd(w.date));
@@ -436,6 +498,8 @@ export function parseCommand(raw: unknown): Command {
     checkTodos,
     addEvents,
     deleteEvents,
+    addBirthdays,
+    deleteBirthdays,
     askWeather,
     askEvents,
     askShopping: r.askShopping === true,
@@ -454,6 +518,8 @@ export const isEmpty = (c: Command) =>
   !c.checkTodos.length &&
   !c.addEvents.length &&
   !c.deleteEvents.length &&
+  !c.addBirthdays.length &&
+  !c.deleteBirthdays.length &&
   !c.askWeather.length &&
   !c.askEvents.length &&
   !c.askShopping &&

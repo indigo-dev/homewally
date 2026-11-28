@@ -67,9 +67,14 @@ export const AgendaView = memo(function AgendaView({ date, now, events, onEvent,
                         </>
                       )}
                     </span>
-                    <span className="ev-stripe" style={{ background: stripe(ms) }} />
+                    <span className="ev-stripe" style={{ background: e.birthdayId ? 'var(--bday, #ec4899)' : stripe(ms) }} />
                     <span className="agenda-text">
                       <span className="ev-title">
+                        {e.birthdayId && (
+                          <span className="bday-mark" aria-hidden>
+                            🎂
+                          </span>
+                        )}
                         {e.localId && <LocalMark title={t('calendar.local.badge')} />}
                         {e.title}
                       </span>

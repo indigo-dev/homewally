@@ -359,6 +359,51 @@ describe('applyCommand', () => {
     expect(res.lines[0].icon).toBe('⚠️');
     expect(res.undo).toBeUndefined();
   });
+
+  it('adds and deletes unassigned birthdays via voice without asking "für wen?"', () => {
+    const { deps } = fakeDeps();
+    const bdayState: { id: string; name: string; month: number; day: number; year?: number }[] = [];
+    const bdayDeps = {
+      ...deps,
+      birthdaysCalendarEnabled: true,
+      get birthdays() {
+        return bdayState as never;
+      },
+      upsertBirthday: (b: { id: string; name: string; month: number; day: number; year?: number }) => {
+        const i = bdayState.findIndex((x) => x.id === b.id);
+        if (i >= 0) bdayState[i] = b;
+        else bdayState.push(b);
+      },
+      removeBirthday: (id: string) => {
+        const i = bdayState.findIndex((x) => x.id === id);
+        if (i >= 0) bdayState.splice(i, 1);
+      },
+    };
+
+    const parsed = parseCommand({
+      transcript: 'Trag Omas Geburtstag am 14. Mai 1956 ein',
+      addBirthdays: [{ name: 'Oma', day: 14, month: 5, year: 1956 }],
+    });
+    expect(parsed.addBirthdays).toHaveLength(1);
+    // birthdays are never assigned to a family member → must never trigger "Für wen?"
+    expect(missingWho(parsed, deps.members)).toBe(false);
+
+    const added = applyCommand(parsed, bdayDeps);
+    expect(bdayState).toHaveLength(1);
+    expect(bdayState[0]).toMatchObject({ name: 'Oma', day: 14, month: 5, year: 1956 });
+    expect(added.lines[0].icon).toBe('🎂');
+
+    const deleted = applyCommand(
+      parseCommand({ transcript: 'Lösch den Geburtstag von Oma', deleteBirthdays: [{ name: 'Oma' }] }),
+      bdayDeps,
+    );
+    expect(bdayState).toHaveLength(0);
+    deleted.undo!();
+    expect(bdayState).toHaveLength(1);
+
+    added.undo!();
+    expect(bdayState).toHaveLength(0);
+  });
 });
 
 describe('calendar requests', () => {

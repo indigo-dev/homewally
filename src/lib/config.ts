@@ -107,6 +107,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weatherIcons: DEFAULT_WEATHER_ICONS,
   schoolEnabled: true,
   localCalendarEnabled: true,
+  birthdaysCalendarEnabled: true,
 };
 
 const STYLE_IDS: UiStyle[] = ['wally', 'classic', 'clear', 'flow', 'aurora', 'nodes', 'minimal'];

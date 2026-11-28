@@ -4,6 +4,7 @@ import { parseIcs, icsCalendarName } from './ics';
 import { demoEvents } from './demo';
 import { configStore } from './config';
 import { expandLocalEvents, localEvents } from './localEvents';
+import { birthdays, expandBirthdays } from './birthdays';
 import { arrayOf, isString, storage, usePersisted } from './persisted';
 import { isNative, nativeGetText } from '../native/launcher';
 import { t } from '../i18n';
@@ -232,7 +233,10 @@ export function useEvents(
 ): EventsState {
   const [state, setState] = useState<EventsState>({ events: [], loading: false, status: {} });
   const local = usePersisted(localEvents);
-  const localEnabled = usePersisted(configStore).settings.localCalendarEnabled;
+  const bdays = usePersisted(birthdays);
+  const cfgSettings = usePersisted(configStore).settings;
+  const localEnabled = cfgSettings.localCalendarEnabled;
+  const bdaysEnabled = cfgSettings.birthdaysCalendarEnabled;
   const runId = useRef(0);
   const lastNonce = useRef(refreshNonce);
   const active = calendars.filter((c) => c.enabled && c.url && c.memberIds.length > 0);
@@ -283,11 +287,18 @@ export function useEvents(
   }, [key, sig, refreshNonce]);
 
   const events = useMemo(() => {
-    if (!localEnabled || local.length === 0) return state.events;
-    const validIds = new Set(members.map((m) => m.id));
-    const expanded = expandLocalEvents(local, range, validIds);
-    return expanded.length ? merge([state.events, expanded]) : state.events;
-  }, [state.events, localEnabled, local, members, range]);
+    const extras: CalEvent[][] = [];
+    if (localEnabled && local.length > 0) {
+      const validIds = new Set(members.map((m) => m.id));
+      const expanded = expandLocalEvents(local, range, validIds);
+      if (expanded.length) extras.push(expanded);
+    }
+    if (bdaysEnabled && bdays.length > 0) {
+      const expanded = expandBirthdays(bdays, range);
+      if (expanded.length) extras.push(expanded);
+    }
+    return extras.length ? merge([state.events, ...extras]) : state.events;
+  }, [state.events, localEnabled, local, bdaysEnabled, bdays, members, range]);
 
   return { ...state, events };
 }

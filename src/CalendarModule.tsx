@@ -5,6 +5,7 @@ import { useStore } from './store';
 import { rangeFor, startOfDay, stepDate, titleFor } from './lib/dates';
 import { proxyOf, useEvents } from './lib/events';
 import { newLocalEvent, toYmd, useLocalEvents, type LocalEvent } from './lib/localEvents';
+import { newBirthday, useBirthdays, type Birthday } from './lib/birthdays';
 import { playSound } from './lib/sounds';
 import { useHolidayMarks } from './lib/holidays';
 import { clampDays } from './lib/config';
@@ -12,6 +13,7 @@ import { useSwipe } from './lib/hooks';
 import { Header, MemberFilter } from './components/Header';
 import { EventDetail } from './components/EventDetail';
 import { EventEditor } from './components/EventEditor';
+import { BirthdayEditor } from './components/BirthdayEditor';
 import { TimeGridView } from './views/TimeGridView';
 import { MonthView } from './views/MonthView';
 import { YearView } from './views/YearView';
@@ -32,11 +34,13 @@ interface Props {
 export function CalendarModule({ reloadKey, settingsOpen, onSettings, onWeather }: Props) {
   const { settings, updateSettings, members, calendars, selectedIds, memberById } = useStore();
   const { events: localList, upsert: upsertLocal, remove: removeLocal } = useLocalEvents();
+  const { birthdays: bdayList, upsert: upsertBday, remove: removeBday } = useBirthdays();
   const nDays = settings.multiDays;
   const [view, setView] = useState<ViewMode>(settings.defaultView);
   const [date, setDate] = useState(() => startOfDay(new Date()));
   const [selected, setSelected] = useState<CalEvent | null>(null);
   const [editingLocal, setEditingLocal] = useState<{ ev: LocalEvent; isNew: boolean } | null>(null);
+  const [editingBday, setEditingBday] = useState<{ b: Birthday; isNew: boolean } | null>(null);
   const [nonce, setNonce] = useState(0);
   const [banner, setBanner] = useState<string | undefined>();
   const [mountedAt] = useState(Date.now);
@@ -134,7 +138,9 @@ export function CalendarModule({ reloadKey, settingsOpen, onSettings, onWeather 
     () =>
       events
         .map((e) => ({ ...e, memberIds: e.memberIds.filter((id) => memberById.has(id)) }))
-        .filter((e) => (selectedIds.size > 0 ? e.memberIds.some((id) => selectedIds.has(id)) : e.memberIds.length > 0)),
+        .filter(
+          (e) => Boolean(e.birthdayId) || (selectedIds.size > 0 ? e.memberIds.some((id) => selectedIds.has(id)) : e.memberIds.length > 0),
+        ),
     [events, selectedIds, memberById],
   );
 
@@ -184,10 +190,14 @@ export function CalendarModule({ reloadKey, settingsOpen, onSettings, onWeather 
         onSettings={onSettings}
         onWeather={onWeather}
         onAddEvent={
-          settings.localCalendarEnabled && members.length > 0
+          (settings.localCalendarEnabled && members.length > 0) || settings.birthdaysCalendarEnabled
             ? () => {
-                const who = selectedIds.size > 0 ? [...selectedIds] : members.map((m) => m.id);
-                setEditingLocal({ ev: newLocalEvent(who, toYmd(date)), isNew: true });
+                if (settings.localCalendarEnabled && members.length > 0) {
+                  const who = selectedIds.size > 0 ? [...selectedIds] : members.map((m) => m.id);
+                  setEditingLocal({ ev: newLocalEvent(who, toYmd(date)), isNew: true });
+                } else {
+                  setEditingBday({ b: newBirthday(date), isNew: true });
+                }
               }
             : undefined
         }
@@ -222,6 +232,15 @@ export function CalendarModule({ reloadKey, settingsOpen, onSettings, onWeather 
             removeLocal(id);
             setSelected(null);
           }}
+          onEditBirthday={(id) => {
+            const found = bdayList.find((x) => x.id === id);
+            setSelected(null);
+            if (found) setEditingBday({ b: found, isNew: false });
+          }}
+          onDeleteBirthday={(id) => {
+            removeBday(id);
+            setSelected(null);
+          }}
         />
       )}
       {editingLocal && (
@@ -241,7 +260,44 @@ export function CalendarModule({ reloadKey, settingsOpen, onSettings, onWeather 
                   setEditingLocal(null);
                 }
           }
+          onSwitchToBirthday={
+            editingLocal.isNew && settings.birthdaysCalendarEnabled
+              ? () => {
+                  setEditingLocal(null);
+                  setEditingBday({ b: newBirthday(date), isNew: true });
+                }
+              : undefined
+          }
           onClose={() => setEditingLocal(null)}
+        />
+      )}
+      {editingBday && (
+        <BirthdayEditor
+          initial={editingBday.b}
+          isNew={editingBday.isNew}
+          onSave={(b) => {
+            upsertBday(b);
+            playSound('eventSaved');
+            setEditingBday(null);
+          }}
+          onDelete={
+            editingBday.isNew
+              ? undefined
+              : () => {
+                  removeBday(editingBday.b.id);
+                  setEditingBday(null);
+                }
+          }
+          onSwitchToEvent={
+            editingBday.isNew && settings.localCalendarEnabled && members.length > 0
+              ? () => {
+                  const who = selectedIds.size > 0 ? [...selectedIds] : members.map((m) => m.id);
+                  setEditingBday(null);
+                  setEditingLocal({ ev: newLocalEvent(who, toYmd(date)), isNew: true });
+                }
+              : undefined
+          }
+          onClose={() => setEditingBday(null)}
         />
       )}
     </>

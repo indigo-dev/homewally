@@ -11,14 +11,20 @@ The app speaks German and English (Settings → Device, or the device language).
 ## What's inside
 
 - **Overview (dashboard):** the start page with widgets – clock, weather, events today & tomorrow, timetable, to-dos,
-  shopping list, photos, holiday countdown, pollen & UV, family today. Widgets come in several sizes; long-press (or the
-  pencil) to move, resize, add or remove them, like on a phone's home screen. Tapping a widget opens its area; tapping
-  the clock starts the screensaver.
-- **Calendar:** day, N days, week, month, year and agenda; swipe to page, pinch to zoom. Calendars come in via
-  subscription links (ICS) – Google, Outlook.com, Microsoft 365, iCloud or any iCal link; no sign-in, nothing expires.
-  Calendars are separate from people: give each a name and assign it to one or more people. Identical events in several
-  calendars are merged into one event with several colours. Public and school holidays for all German states are shown
-  as markers.
+  shopping list, photos, holiday countdown, pollen & UV, family today, plus Android-only **app shortcut tiles** and a
+  **battery monitor** (1×1, 2×1 and 1×2 with colour-coded level, charging ETA and a 24-hour curve). Widgets come in
+  several sizes; long-press (or the pencil) to move, resize, add or remove them, like on a phone's home screen. Tapping
+  a widget opens its area; tapping the clock starts the screensaver.
+- **Calendar:** 1–6 days (steppable right in the tab), week, month, year and agenda; swipe to page, pinch to zoom.
+  - **Subscribed calendars (ICS):** Google, Outlook.com, Microsoft 365, iCloud or any iCal link; no sign-in, nothing
+    expires. Calendars are separate from people and identical events across calendars are merged into one event with
+    several colours.
+  - **Local family calendar:** create, edit and delete events directly on the wall tablet (one-off or weekly, monthly
+    and yearly repeats) – ideal for kids without an external account. Stored only on this device (no cloud sync),
+    marked subtly with a small house icon, and toggleable or clearable under Settings → Calendars.
+  - **Birthdays calendar:** a separate local, unassigned calendar for all-day yearly birthdays (optional birth year
+    automatically calculates the age).
+  - Public and school holidays for all German states are shown as markers.
 - **Person filter:** tap an avatar to show only that person (tap again or “All” = everyone); long-press adds or removes
   a person.
 - **Timetable:** per child Mon–Fri × periods with bell times and coloured subjects (presets for primary and secondary
@@ -26,15 +32,23 @@ The app speaks German and English (Settings → Device, or the device language).
   greyed out.
 - **To-dos:** a free pin board with notes per person; move them around, pinch to resize, tick them off.
 - **Shopping:** a pantry of everyday items to tap onto the list, sorted by department; tick items off in the store or
-  right on the overview.
-- **Weather:** several places as tabs, the next hours (tap an hour for details), the coming days, official warnings,
-  pollen and UV index.
+  right on the overview. The list automatically compacts in three density stages as it grows, and offers a high-contrast
+  multi-column **fullscreen** view for taking a quick phone photo.
+- **Weather:** several places as tabs (search or current location), the next hours (tap an hour for details), the coming
+  days, official DWD warnings, pollen and UV index.
 - **Photos & screensaver:** an album on the device and a slideshow with clock faces (also a word clock) and today's
   events. After a set idle time – or with a tap on the clock – it runs as the screensaver.
+- **Games corner (optional):** small family games (Minefield, Tile Pairs, Gems, Paddle) with player selection, records,
+  optional daily time limit and opening hours (Settings → Device).
+- **Sounds & event reminders:** soft, locally synthesized Web Audio chimes for actions, games and reminders, with
+  in-app volume control and quiet hours (Settings → Device). Upcoming timed events (subscribed and local) show a top
+  reminder banner – even over the screensaver – with optional chime and spoken announcement.
 - **Voice control (optional):** a microphone button; the spoken request goes to Google Gemini with your own API key
-  (Settings → Voice control). It adds to-dos and shopping items, answers questions about events and the weather
-  and opens an area, also for a certain person.
+  (Settings → Voice control). It adds/checks to-dos and shopping items, creates/deletes local events and birthdays
+  (with Undo), answers questions about events, weather, shopping, to-dos and timetables, and opens any area.
 - **Apps (Android app only):** lists and starts installed apps, so the tablet can use HomeWally as its home screen.
+  Long-press an app tile to add it to the overview, open Android App Info or uninstall it; includes a quick shortcut to
+  Android settings.
 - **Wall mode:** the screen stays on, the app returns to the overview after inactivity, refreshes itself and works
   offline from its cache.
 
@@ -57,7 +71,10 @@ The app speaks German and English (Settings → Device, or the device language).
   every area – events, timetables, to-dos, shopping list, weather places and photos.
 - **Remove demo data:** Settings → Backup removes only the demo data and keeps everything you entered yourself.
 - **Reset the app:** Settings → Backup puts the app back into its first-start state on this device.
-- **Export/import** of the configuration as JSON (Settings → Backup) moves the setup to another device.
+- **Full backup (export/import):** Settings → Backup exports all device data as JSON (people, calendars, local events,
+  birthdays, timetables, settings, to-dos, shopping list, weather places, dashboard layout, photo frame settings, games
+  & records, sound/reminder settings and module order) to back it up or move it to another device. Local photos and the
+  Gemini API key stay on the device.
 
 ## Run locally
 
@@ -142,8 +159,10 @@ delay (Google sometimes several hours, Outlook usually faster).
 ## Android app
 
 The Android app **HomeWally** wraps the same web code with [Capacitor](https://capacitorjs.com) and can be set as the
-tablet's home screen (launcher), including the “Apps” area that lists and starts installed apps. It loads calendar links
-directly, without the worker, and can read answers of the voice control aloud.
+tablet's home screen (launcher), including the “Apps” area (with long-press app management: add to overview, App Info,
+uninstall) and a live battery widget with 24-hour history. It loads calendar links directly without the worker, adapts
+the system status/navigation bar contrast to light/dark mode, supports native location access for weather and reads
+voice answers and optional event reminders aloud.
 
 - Native project: `android/`; configuration: `capacitor.config.ts` (package name `io.github.indigodev.homewally` –
   fixed in the Play Store, never change it).
@@ -166,9 +185,11 @@ directly, without the worker, and can read answers of the voice control aloud.
 
 ## Configuration & privacy
 
-- Everything (people, calendar links, settings, event cache, to-dos, shopping list, weather places) is stored only on
-  the device, in `localStorage`; photos in IndexedDB. There is no server of ours.
-- The export contains the secret calendar links, the proxy key and the voice API key – don't share it.
+- Everything (people, calendar links, local events, birthdays, settings, event cache, to-dos, shopping list, weather
+  places, games, sounds, battery history) is stored only on the device, in `localStorage`; photos in IndexedDB. There is
+  no server of ours.
+- The JSON backup contains the secret calendar links and proxy key – don't share it. The Gemini API key is never
+  exported.
 - Services the app talks to directly:
   - Public/school holidays: [OpenHolidays API](https://www.openholidaysapi.org), licence ODbL.
   - Weather, places, pollen and UV: [Open-Meteo](https://open-meteo.com); weather warnings of the DWD via
@@ -188,17 +209,22 @@ src/
   styles.css            app shell and shared components
   dashboard/            overview with its widgets
   CalendarModule.tsx    calendar area; views/ = day/days/week, month, year, agenda
-  timetable/ todos/ shopping/ weather/ frame/ apps/ voice/
+  timetable/ todos/ shopping/ weather/ frame/ games/ apps/ voice/
                         the other areas
   settings/             settings dialog
   lib/ics.ts            iCal parser incl. recurring events and time zones
-  lib/events.ts         load subscription links via the proxy (or directly in the app), merge, cache
+  lib/events.ts         load subscription links via the proxy (or directly in the app), merge with local & birthday events, cache
+  lib/localEvents.ts    local family calendar (one-off and repeating events)
+  lib/birthdays.ts      local unassigned birthdays calendar (yearly all-day events)
+  lib/backup.ts         full JSON export and import across all areas
+  lib/sounds.ts         synthesized Web Audio sounds, quiet hours and reminder settings
+  lib/battery.ts        Android battery monitor and 24-hour curve geometry
   lib/holidays.ts       public/school holidays (OpenHolidays API)
   lib/colors.ts         palettes per style and the colour painter
   lib/demoData.ts       demo family for every area, remove demo data, reset
-  lib/config.ts         defaults, validation, export/import, avatar images
+  lib/config.ts         defaults, validation, avatar images
   i18n/                 German (source) and English texts
-  native/               bridge to the Android app (launcher, direct calendar fetch, speech)
+  native/               bridge to the Android app (launcher, app management, battery, system bars, direct fetch, speech)
 public/                 icons, manifest, service worker, bundled symbols and weather icons
 worker/                 Cloudflare Worker (ICS proxy), wrangler.toml, tests
 android/                Android project (Capacitor, HomeWally)

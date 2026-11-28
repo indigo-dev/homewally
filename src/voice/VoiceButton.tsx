@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { BUILTIN, useShopping } from '../lib/shopping';
 import { useTodos } from '../lib/todos';
 import { useLocalEvents } from '../lib/localEvents';
+import { useBirthdays } from '../lib/birthdays';
 import { useWeatherSettings } from '../lib/weather';
 import { requestCalendar } from '../lib/calendarNav';
 import { fmt } from '../lib/dates';
@@ -49,6 +50,7 @@ export function VoiceButton({ onOpenModule, onSettings }: { onOpenModule: (id: M
   const shop = useShopping();
   const todos = useTodos();
   const localCal = useLocalEvents();
+  const bdays = useBirthdays();
   const { places } = useWeatherSettings();
   const [phase, setPhase] = useState<Phase>({ s: 'idle' });
   const [level, setLevel] = useState(0);
@@ -112,6 +114,10 @@ export function VoiceButton({ onOpenModule, onSettings }: { onOpenModule: (id: M
       localEvents: localCal.events,
       upsertLocalEvent: localCal.upsert,
       removeLocalEvent: localCal.remove,
+      birthdaysCalendarEnabled: settings.birthdaysCalendarEnabled,
+      birthdays: bdays.birthdays,
+      upsertBirthday: bdays.upsert,
+      removeBirthday: bdays.remove,
     });
 
     let shown: string | undefined;
@@ -160,6 +166,8 @@ export function VoiceButton({ onOpenModule, onSettings }: { onOpenModule: (id: M
             .map((x) => x.text),
           localEvents: settings.localCalendarEnabled ? localCal.events.slice(0, 40).map((e) => `${e.title} (${e.date})`) : [],
           localCalendarEnabled: settings.localCalendarEnabled,
+          birthdays: settings.birthdaysCalendarEnabled ? bdays.birthdays.slice(0, 40).map((b) => `${b.name} (${b.day}.${b.month}.)`) : [],
+          birthdaysCalendarEnabled: settings.birthdaysCalendarEnabled,
         },
         { apiKey: voice.apiKey, model: voice.model, fallbackModel: DEFAULT_MODEL },
         ctrl.signal,

@@ -91,7 +91,9 @@ export function Dashboard({ reloadKey, editing, onEditing, openModule, startFram
   const { events: raw } = useEvents(range, members, calendars, proxyOf(settings), nonce);
   const events = useMemo(() => {
     const ids = new Set(members.map((m) => m.id));
-    return raw.map((e) => ({ ...e, memberIds: e.memberIds.filter((id) => ids.has(id)) })).filter((e) => e.memberIds.length > 0);
+    return raw
+      .map((e) => ({ ...e, memberIds: e.memberIds.filter((id) => ids.has(id)) }))
+      .filter((e) => Boolean(e.birthdayId) || e.memberIds.length > 0);
   }, [raw, members]);
 
   const todos = useTodos();

@@ -1024,6 +1024,16 @@
     opacity: 0.72;
     flex: none;
   }
+  .bday-mark {
+    margin-right: 4px;
+    flex: none;
+  }
+  .event-kind-switch {
+    width: 100%;
+  }
+  .event-kind-switch > button {
+    flex: 1;
+  }
   .local-mark svg {
     width: 0.92em;
     height: 0.92em;
@@ -1066,6 +1076,7 @@
     color: var(--muted);
   }
   .event-field input,
+  .event-field select,
   .event-field textarea {
     width: 100%;
     min-width: 0;

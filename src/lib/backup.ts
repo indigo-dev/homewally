@@ -3,6 +3,7 @@ import { parseConfig } from './config';
 import { isRecord } from './persisted';
 import { todos } from './todos';
 import { localEvents } from './localEvents';
+import { birthdays } from './birthdays';
 import { shopping } from './shopping';
 import { soundSettings } from './sounds';
 import { weatherSettings } from './weather';
@@ -16,6 +17,7 @@ import { t } from '../i18n';
 export interface BackupData {
   todos?: unknown;
   localEvents?: unknown;
+  birthdays?: unknown;
   shopping?: unknown;
   weather?: unknown;
   dashboard?: unknown;
@@ -46,6 +48,7 @@ export function buildBackup(cfg: AppConfig) {
     data: {
       todos: todos.get(),
       localEvents: localEvents.get(),
+      birthdays: birthdays.get(),
       shopping: shopping.get(),
       weather: weatherSettings.get(),
       dashboard: dashboardLayout.get(),
@@ -90,6 +93,7 @@ export function parseBackup(raw: unknown): BackupPayload {
   const data: BackupData = {};
   if ('todos' in d) data.todos = d.todos;
   if ('localEvents' in d) data.localEvents = d.localEvents;
+  if ('birthdays' in d) data.birthdays = d.birthdays;
   if ('shopping' in d) data.shopping = d.shopping;
   if ('weather' in d) data.weather = d.weather;
   if ('dashboard' in d) data.dashboard = d.dashboard;
@@ -129,6 +133,7 @@ export function applyBackup(backup: BackupPayload, replaceConfig: (cfg: AppConfi
   if (!d) return;
   if ('todos' in d) todos.restore(d.todos);
   if ('localEvents' in d) localEvents.restore(d.localEvents);
+  if ('birthdays' in d) birthdays.restore(d.birthdays);
   if ('shopping' in d) shopping.restore(d.shopping);
   if ('weather' in d) weatherSettings.restore(d.weather);
   if ('dashboard' in d) dashboardLayout.restore(d.dashboard);
